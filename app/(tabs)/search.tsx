@@ -2,10 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Search, Filter, MapPin, Star, Clock, Heart } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
-import { Database } from '@/types/database';
 
-type TherapistProfile = Database['public']['Tables']['therapist_profiles']['Row'] & {
-  users: Database['public']['Tables']['users']['Row'];
+// Update the type to match your actual data structure
+type TherapistProfile = {
+  id: string;
+  user_id: string;
+  bio: string;
+  specialties: string[] | null;
+  credentials: string;
+  experience_years: number;
+  availability: any[];
+  hourly_rate: string;
+  is_approved: boolean;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  user_photo_url: string | null;
+  user_location: string | null;
 };
 
 export default function SearchScreen() {
@@ -31,67 +44,95 @@ export default function SearchScreen() {
 
   const loadTherapists = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('Loading therapists...');
+      
+      // Get approved therapist profiles
+      const { data: profiles, error: profileError } = await supabase
         .from('therapist_profiles')
-        .select(`
-          *,
-          users!therapist_profiles_user_id_fkey (
-            id,
-            name,
-            photo_url,
-            location
-          )
-        `)
+        .select('*')
         .eq('is_approved', true);
 
-      if (error) throw error;
-      
-      console.log('Raw data from Supabase:', data); // Add this for debugging
-      
-      // Filter out profiles without a linked user row
-      const validTherapists = (data || []).filter(profile => {
-        console.log('Profile:', profile); // Debug each profile
-        return profile.users !== null && profile.users?.name;
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        throw profileError;
+      }
+
+      console.log('Therapist profiles loaded:', profiles?.length);
+
+      if (!profiles || profiles.length === 0) {
+        console.log('No approved therapist profiles found');
+        setTherapists([]);
+        return;
+      }
+
+      // Get user data for each therapist
+      const userIds = profiles.map(p => p.user_id);
+      console.log('Getting users for IDs:', userIds);
+
+      const { data: users, error: userError } = await supabase
+        .from('users')
+        .select('id, name, photo_url, location')
+        .in('id', userIds);
+      if (userError) {
+        console.error('User error:', userError);
+        throw userError;
+      }
+
+      console.log('Users loaded:', users?.length);
+
+      // Manually join the data
+      const therapistsWithUsers = profiles.map(profile => {
+        const user = users?.find(u => u.id === profile.user_id);
+        
+        if (!user) {
+          console.log(`No user found for therapist ${profile.id} with user_id ${profile.user_id}`);
+        }
+
+        return {
+          ...profile,
+          user_name: user?.name || 'Unknown',
+          user_photo_url: user?.photo_url || null,
+          user_location: user?.location || null,
+        };
       });
+
+      // Filter out therapists without valid user data
+      const validTherapists = therapistsWithUsers.filter(t => t.user_name !== 'Unknown');
       
+      console.log('Valid therapists:', validTherapists.length);
+      console.log('Sample therapist:', validTherapists[0]);
+
       setTherapists(validTherapists);
+
     } catch (error) {
       console.error('Error loading therapists:', error);
-      Alert.alert('Error', 'Failed to load therapists');
+      Alert.alert('Error', 'Failed to load therapists. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredTherapists = therapists
-    .filter(therapist => {
-      // Ensure we have a valid user object with name
-      if (!therapist.users || !therapist.users.name) {
-        console.log('Missing user data for therapist:', therapist.id);
-        return false;
-      }
-      return true;
-    })
-    .filter(therapist => {
-      const name = therapist.users.name.toLowerCase();
-      const query = searchQuery.toLowerCase();
+  const filteredTherapists = therapists.filter(therapist => {
+    const name = therapist.user_name?.toLowerCase() || '';
+    const query = searchQuery.toLowerCase();
+    const bio = therapist.bio?.toLowerCase() || '';
 
-      const matchesSearch =
-        !searchQuery ||
-        name.includes(query) ||
-        (therapist.specialties && therapist.specialties.some(s => 
-          s.toLowerCase().includes(query)
-        ));
+    const matchesSearch =
+      !searchQuery ||
+      name.includes(query) ||
+      bio.includes(query) ||
+      (therapist.specialties && therapist.specialties.some(s => 
+        s.toLowerCase().includes(query)
+      ));
 
-      const matchesSpecialty =
-        !selectedSpecialty ||
-        (therapist.specialties && therapist.specialties.includes(selectedSpecialty));
+    const matchesSpecialty =
+      !selectedSpecialty ||
+      (therapist.specialties && therapist.specialties.includes(selectedSpecialty));
 
-      return matchesSearch && matchesSpecialty;
-    });
+    return matchesSearch && matchesSpecialty;
+  });
 
   const handleBookAppointment = (therapistId: string) => {
-    // Navigate to booking screen (to be implemented)
     Alert.alert('Booking', 'Appointment booking will be implemented in the next update!');
   };
 
@@ -158,28 +199,22 @@ export default function SearchScreen() {
         ) : (
           <View style={styles.therapistContainer}>
             {filteredTherapists.map((therapist) => {
-              // Safety check before rendering
-              if (!therapist.users || !therapist.users.name) {
-                console.warn('Skipping therapist with missing user data:', therapist.id);
-                return null;
-              }
-
               return (
                 <View key={therapist.id} style={styles.therapistCard}>
                   <View style={styles.therapistHeader}>
                     <View style={styles.avatarContainer}>
                       <Text style={styles.avatarText}>
-                        {therapist.users.name.charAt(0).toUpperCase()}
+                        {therapist.user_name?.charAt(0).toUpperCase() || 'T'}
                       </Text>
                     </View>
                     <View style={styles.therapistInfo}>
                       <Text style={styles.therapistName}>
-                        {therapist.users.name}
+                        {therapist.user_name || 'Unknown Therapist'}
                       </Text>
                       <View style={styles.locationContainer}>
                         <MapPin size={14} color="#64748b" />
                         <Text style={styles.locationText}>
-                          {therapist.users.location || 'Remote'}
+                          {therapist.user_location || 'Remote'}
                         </Text>
                       </View>
                       <View style={styles.experienceContainer}>
@@ -189,7 +224,7 @@ export default function SearchScreen() {
                     </View>
                     {therapist.hourly_rate && (
                       <View style={styles.rateContainer}>
-                        <Text style={styles.rateText}>${therapist.hourly_rate}/hr</Text>
+                        <Text style={styles.rateText}>₵{therapist.hourly_rate}/hr</Text>
                       </View>
                     )}
                   </View>
@@ -198,17 +233,30 @@ export default function SearchScreen() {
                     {therapist.bio}
                   </Text>
 
-                  <View style={styles.specialtyTags}>
-                    {therapist.specialties.slice(0, 3).map((specialty, index) => (
-                      <View key={index} style={styles.specialtyTag}>
-                        <Text style={styles.specialtyTagText}>{specialty}</Text>
-                      </View>
-                    ))}
-                    {therapist.specialties.length > 3 && (
+                  {/* Handle null specialties */}
+                  {therapist.specialties && therapist.specialties.length > 0 ? (
+                    <View style={styles.specialtyTags}>
+                      {therapist.specialties.slice(0, 3).map((specialty, index) => (
+                        <View key={index} style={styles.specialtyTag}>
+                          <Text style={styles.specialtyTagText}>{specialty}</Text>
+                        </View>
+                      ))}
+                      {therapist.specialties.length > 3 && (
+                        <View style={styles.specialtyTag}>
+                          <Text style={styles.specialtyTagText}>+{therapist.specialties.length - 3} more</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.specialtyTags}>
                       <View style={styles.specialtyTag}>
-                        <Text style={styles.specialtyTagText}>+{therapist.specialties.length - 3} more</Text>
+                        <Text style={styles.specialtyTagText}>General OT</Text>
                       </View>
-                    )}
+                    </View>
+                  )}
+
+                  <View style={styles.credentialsContainer}>
+                    <Text style={styles.credentialsText}>{therapist.credentials}</Text>
                   </View>
 
                   <View style={styles.therapistActions}>
@@ -419,7 +467,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   specialtyTag: {
     backgroundColor: '#f1f5f9',
@@ -464,5 +512,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
     color: '#ffffff',
+  },
+  credentialsContainer: {
+    marginBottom: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  credentialsText: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#64748b',
+    fontStyle: 'italic',
   },
 });
