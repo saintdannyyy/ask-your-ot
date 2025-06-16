@@ -35,7 +35,7 @@ export default function SearchScreen() {
         .from('therapist_profiles')
         .select(`
           *,
-          users:user_id (
+          users!therapist_profiles_user_id_fkey (
             id,
             name,
             photo_url,
@@ -45,8 +45,16 @@ export default function SearchScreen() {
         .eq('is_approved', true);
 
       if (error) throw error;
-      // drop any profiles without a linked user row
-      setTherapists((data || []).filter(profile => profile.users !== null));
+      
+      console.log('Raw data from Supabase:', data); // Add this for debugging
+      
+      // Filter out profiles without a linked user row
+      const validTherapists = (data || []).filter(profile => {
+        console.log('Profile:', profile); // Debug each profile
+        return profile.users !== null && profile.users?.name;
+      });
+      
+      setTherapists(validTherapists);
     } catch (error) {
       console.error('Error loading therapists:', error);
       Alert.alert('Error', 'Failed to load therapists');
@@ -56,8 +64,14 @@ export default function SearchScreen() {
   };
 
   const filteredTherapists = therapists
-    // ensure we have a user object
-    .filter(therapist => therapist.users !== null)
+    .filter(therapist => {
+      // Ensure we have a valid user object with name
+      if (!therapist.users || !therapist.users.name) {
+        console.log('Missing user data for therapist:', therapist.id);
+        return false;
+      }
+      return true;
+    })
     .filter(therapist => {
       const name = therapist.users.name.toLowerCase();
       const query = searchQuery.toLowerCase();
@@ -65,11 +79,13 @@ export default function SearchScreen() {
       const matchesSearch =
         !searchQuery ||
         name.includes(query) ||
-        therapist.specialties.some(s => s.toLowerCase().includes(query));
+        (therapist.specialties && therapist.specialties.some(s => 
+          s.toLowerCase().includes(query)
+        ));
 
       const matchesSpecialty =
         !selectedSpecialty ||
-        therapist.specialties.includes(selectedSpecialty);
+        (therapist.specialties && therapist.specialties.includes(selectedSpecialty));
 
       return matchesSearch && matchesSpecialty;
     });
@@ -141,67 +157,75 @@ export default function SearchScreen() {
           </View>
         ) : (
           <View style={styles.therapistContainer}>
-            {filteredTherapists.map((therapist) => (
-              <View key={therapist.id} style={styles.therapistCard}>
-                <View style={styles.therapistHeader}>
-                  <View style={styles.avatarContainer}>
-                    <Text style={styles.avatarText}>
-                      {therapist.users.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.therapistInfo}>
-                    <Text style={styles.therapistName}>
-                      {therapist.users.name}
-                    </Text>
-                    <View style={styles.locationContainer}>
-                      <MapPin size={14} color="#64748b" />
-                      <Text style={styles.locationText}>
-                        {therapist.users.location || 'Remote'}
+            {filteredTherapists.map((therapist) => {
+              // Safety check before rendering
+              if (!therapist.users || !therapist.users.name) {
+                console.warn('Skipping therapist with missing user data:', therapist.id);
+                return null;
+              }
+
+              return (
+                <View key={therapist.id} style={styles.therapistCard}>
+                  <View style={styles.therapistHeader}>
+                    <View style={styles.avatarContainer}>
+                      <Text style={styles.avatarText}>
+                        {therapist.users.name.charAt(0).toUpperCase()}
                       </Text>
                     </View>
-                    <View style={styles.experienceContainer}>
-                      <Star size={14} color="#f59e0b" />
-                      <Text style={styles.experienceText}>{therapist.experience_years} years exp.</Text>
+                    <View style={styles.therapistInfo}>
+                      <Text style={styles.therapistName}>
+                        {therapist.users.name}
+                      </Text>
+                      <View style={styles.locationContainer}>
+                        <MapPin size={14} color="#64748b" />
+                        <Text style={styles.locationText}>
+                          {therapist.users.location || 'Remote'}
+                        </Text>
+                      </View>
+                      <View style={styles.experienceContainer}>
+                        <Star size={14} color="#f59e0b" />
+                        <Text style={styles.experienceText}>{therapist.experience_years} years exp.</Text>
+                      </View>
                     </View>
+                    {therapist.hourly_rate && (
+                      <View style={styles.rateContainer}>
+                        <Text style={styles.rateText}>${therapist.hourly_rate}/hr</Text>
+                      </View>
+                    )}
                   </View>
-                  {therapist.hourly_rate && (
-                    <View style={styles.rateContainer}>
-                      <Text style={styles.rateText}>${therapist.hourly_rate}/hr</Text>
-                    </View>
-                  )}
-                </View>
 
-                <Text style={styles.bio} numberOfLines={3}>
-                  {therapist.bio}
-                </Text>
+                  <Text style={styles.bio} numberOfLines={3}>
+                    {therapist.bio}
+                  </Text>
 
-                <View style={styles.specialtyTags}>
-                  {therapist.specialties.slice(0, 3).map((specialty, index) => (
-                    <View key={index} style={styles.specialtyTag}>
-                      <Text style={styles.specialtyTagText}>{specialty}</Text>
-                    </View>
-                  ))}
-                  {therapist.specialties.length > 3 && (
-                    <View style={styles.specialtyTag}>
-                      <Text style={styles.specialtyTagText}>+{therapist.specialties.length - 3} more</Text>
-                    </View>
-                  )}
-                </View>
+                  <View style={styles.specialtyTags}>
+                    {therapist.specialties.slice(0, 3).map((specialty, index) => (
+                      <View key={index} style={styles.specialtyTag}>
+                        <Text style={styles.specialtyTagText}>{specialty}</Text>
+                      </View>
+                    ))}
+                    {therapist.specialties.length > 3 && (
+                      <View style={styles.specialtyTag}>
+                        <Text style={styles.specialtyTagText}>+{therapist.specialties.length - 3} more</Text>
+                      </View>
+                    )}
+                  </View>
 
-                <View style={styles.therapistActions}>
-                  <TouchableOpacity style={styles.viewProfileButton}>
-                    <Text style={styles.viewProfileText}>View Profile</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.bookButton}
-                    onPress={() => handleBookAppointment(therapist.id)}
-                  >
-                    <Clock size={16} color="#ffffff" />
-                    <Text style={styles.bookButtonText}>Book Now</Text>
-                  </TouchableOpacity>
+                  <View style={styles.therapistActions}>
+                    <TouchableOpacity style={styles.viewProfileButton}>
+                      <Text style={styles.viewProfileText}>View Profile</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.bookButton}
+                      onPress={() => handleBookAppointment(therapist.id)}
+                    >
+                      <Clock size={16} color="#ffffff" />
+                      <Text style={styles.bookButtonText}>Book Now</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>
