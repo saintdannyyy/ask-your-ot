@@ -35,7 +35,12 @@ export default function SearchScreen() {
         .from('therapist_profiles')
         .select(`
           *,
-          users:user_id (*)
+          users:user_id (
+            id,
+            name,
+            photo_url,
+            location
+          )
         `)
         .eq('is_approved', true);
 
@@ -50,11 +55,16 @@ export default function SearchScreen() {
   };
 
   const filteredTherapists = therapists.filter(therapist => {
-    const matchesSearch = !searchQuery || 
-      therapist.users.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      therapist.specialties.some(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesSpecialty = !selectedSpecialty || 
+    const name = therapist.users.name.toLowerCase();
+    const query = searchQuery.toLowerCase();
+
+    const matchesSearch =
+      !searchQuery ||
+      name.includes(query) ||
+      therapist.specialties.some(s => s.toLowerCase().includes(query));
+
+    const matchesSpecialty =
+      !selectedSpecialty ||
       therapist.specialties.includes(selectedSpecialty);
 
     return matchesSearch && matchesSpecialty;
@@ -136,10 +146,14 @@ export default function SearchScreen() {
                     </Text>
                   </View>
                   <View style={styles.therapistInfo}>
-                    <Text style={styles.therapistName}>{therapist.users.name}</Text>
+                    <Text style={styles.therapistName}>
+                      {therapist.users.name}
+                    </Text>
                     <View style={styles.locationContainer}>
                       <MapPin size={14} color="#64748b" />
-                      <Text style={styles.locationText}>{therapist.users.location || 'Remote'}</Text>
+                      <Text style={styles.locationText}>
+                        {therapist.users.location || 'Remote'}
+                      </Text>
                     </View>
                     <View style={styles.experienceContainer}>
                       <Star size={14} color="#f59e0b" />
