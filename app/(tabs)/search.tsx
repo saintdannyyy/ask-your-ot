@@ -45,7 +45,8 @@ export default function SearchScreen() {
         .eq('is_approved', true);
 
       if (error) throw error;
-      setTherapists(data || []);
+      // drop any profiles without a linked user row
+      setTherapists((data || []).filter(profile => profile.users !== null));
     } catch (error) {
       console.error('Error loading therapists:', error);
       Alert.alert('Error', 'Failed to load therapists');
@@ -54,21 +55,24 @@ export default function SearchScreen() {
     }
   };
 
-  const filteredTherapists = therapists.filter(therapist => {
-    const name = therapist.users.name.toLowerCase();
-    const query = searchQuery.toLowerCase();
+  const filteredTherapists = therapists
+    // ensure we have a user object
+    .filter(therapist => therapist.users !== null)
+    .filter(therapist => {
+      const name = therapist.users.name.toLowerCase();
+      const query = searchQuery.toLowerCase();
 
-    const matchesSearch =
-      !searchQuery ||
-      name.includes(query) ||
-      therapist.specialties.some(s => s.toLowerCase().includes(query));
+      const matchesSearch =
+        !searchQuery ||
+        name.includes(query) ||
+        therapist.specialties.some(s => s.toLowerCase().includes(query));
 
-    const matchesSpecialty =
-      !selectedSpecialty ||
-      therapist.specialties.includes(selectedSpecialty);
+      const matchesSpecialty =
+        !selectedSpecialty ||
+        therapist.specialties.includes(selectedSpecialty);
 
-    return matchesSearch && matchesSpecialty;
-  });
+      return matchesSearch && matchesSpecialty;
+    });
 
   const handleBookAppointment = (therapistId: string) => {
     // Navigate to booking screen (to be implemented)
