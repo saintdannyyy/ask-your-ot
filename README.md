@@ -1,6 +1,6 @@
-# Ask Your OT 🧠
+# OTConekt 🧠
 
-**Ask Your OT** is a cross-platform mobile tele-rehabilitation app that connects individuals seeking occupational therapy with licensed therapists. Built using **React Native (Expo)** and powered by **Supabase**, this project focuses on accessibility, flexibility, and seamless virtual care.
+**OTConekt** is a cross-platform mobile tele-rehabilitation app that connects individuals seeking occupational therapy with licensed therapists. Built using **React Native (Expo)** and powered by **Supabase**, this project focuses on accessibility, flexibility, and seamless virtual care.
 
 ---
 
@@ -53,8 +53,8 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/ask-your-ot.git
-cd ask-your-ot
+git clone https://github.com/your-username/otconekt.git
+cd otconekt
 
 # Install dependencies
 yarn install # or npm install

@@ -276,7 +276,7 @@ export default function HomeScreen() {
             <Text style={styles.activityText}>
               {isTherapist 
                 ? 'No recent client activity. Check back later.' 
-                : 'Welcome to Ask Your OT! Start by finding a therapist that suits your needs.'}
+                : 'Welcome to OTConekt! Start by finding a therapist that suits your needs.'}
             </Text>
           </View>
         </View>

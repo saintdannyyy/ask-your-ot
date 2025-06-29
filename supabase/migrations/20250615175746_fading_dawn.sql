@@ -1,5 +1,5 @@
 /*
-  # Sample Data for Ask Your OT App
+  # Sample Data for OTConekt App
 
   1. Sample Data
     - Sample therapist profiles with different specialties

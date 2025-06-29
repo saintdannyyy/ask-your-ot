@@ -27,7 +27,7 @@ export default function SetupProfileScreen() {
             <View style={styles.successIcon}>
               <CheckCircle size={48} color="#10B981" />
             </View>
-            <Text style={styles.title}>Welcome to Ask Your OT!</Text>
+            <Text style={styles.title}>Welcome to OTConekt!</Text>
             <Text style={styles.subtitle}>
               Your account has been created successfully. You can now start connecting with healthcare professionals or clients.
             </Text>

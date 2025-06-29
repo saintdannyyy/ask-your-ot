@@ -1,5 +1,5 @@
 /*
-  # Initial Schema for Ask Your OT App
+  # Initial Schema for OTConekt App
 
   1. New Tables
     - `users`

@@ -1,7 +1,7 @@
 {
   "expo": {
-  "name": "ask-your-ot",
-    "slug": "ask-your-ot",
+  "name": "OTConekt",
+    "slug": "otconekt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/ot.jpg",
