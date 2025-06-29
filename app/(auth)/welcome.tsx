@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image, Animated } from 'react-native';
 import { router } from 'expo-router';
-import { Heart, Activity, Brain, Sparkles, HandHeart, ArrowRight } from 'lucide-react-native';
+import { Heart, Activity, Brain, Sparkles, HandHeart, ArrowRight, Users, Shield, Clock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
@@ -85,7 +85,10 @@ export default function WelcomeScreen() {
   });
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#ffffff', '#f8fafc', '#ffffff']}
+      style={styles.container}
+    >
       {/* Animated floating elements */}
       <Animated.View 
         style={[
@@ -109,6 +112,12 @@ export default function WelcomeScreen() {
         </View>
         <View style={[styles.floatingIcon, styles.brainIcon]}>
           <Brain size={16} color="#8b5cf6" />
+        </View>
+        <View style={[styles.floatingIcon, styles.activityIcon]}>
+          <Activity size={16} color="#ef4444" />
+        </View>
+        <View style={[styles.floatingIcon, styles.usersIcon]}>
+          <Users size={16} color="#14b8a6" />
         </View>
       </Animated.View>
 
@@ -139,11 +148,11 @@ export default function WelcomeScreen() {
                 <Heart size={24} color="#14b8a6" />
               </Animated.View>
               <View style={styles.appNameContainer}>
-                <Text style={styles.heroTitle}>Ask Your </Text>
-                <Text style={styles.heroTitleAccent}>OT</Text>
+                <Text style={styles.heroTitle}>OT</Text>
+                <Text style={styles.heroTitleAccent}>Conekt</Text>
               </View>
             </View>
-            <Text style={styles.tagline}>Professional Occupational Therapy</Text>
+            <Text style={styles.tagline}>Connect • Care • Heal</Text>
             <View style={styles.titleUnderline} />
           </Animated.View>
           
@@ -188,8 +197,38 @@ export default function WelcomeScreen() {
               },
             ]}
           >
-            Connect with certified occupational therapists for personalized care
+            Connect with certified occupational therapists for personalized, accessible care from anywhere
           </Animated.Text>
+
+          {/* Feature highlights */}
+          <Animated.View 
+            style={[
+              styles.featuresContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <View style={styles.featureItem}>
+              <View style={styles.featureIcon}>
+                <Shield size={16} color="#14b8a6" />
+              </View>
+              <Text style={styles.featureText}>Certified Therapists</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <View style={styles.featureIcon}>
+                <Clock size={16} color="#14b8a6" />
+              </View>
+              <Text style={styles.featureText}>Flexible Scheduling</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <View style={styles.featureIcon}>
+                <Heart size={16} color="#14b8a6" />
+              </View>
+              <Text style={styles.featureText}>Personalized Care</Text>
+            </View>
+          </Animated.View>
         </View>
 
         {/* Animated button section */}
@@ -207,8 +246,10 @@ export default function WelcomeScreen() {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={['#14b8a6', '#0d9488']}
+              colors={['#14b8a6', '#0d9488', '#0f766e']}
               style={styles.primaryButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
               <Text style={styles.primaryButtonText}>Get Started</Text>
               <ArrowRight size={18} color="#ffffff" />
@@ -218,13 +259,16 @@ export default function WelcomeScreen() {
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => router.push('/(auth)/sign-in')}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <Text style={styles.secondaryButtonText}>Already have an account? Sign In</Text>
+            <View style={styles.secondaryButtonContent}>
+              <Text style={styles.secondaryButtonText}>Already have an account? </Text>
+              <Text style={styles.secondaryButtonAccent}>Sign In</Text>
+            </View>
           </TouchableOpacity>
         </Animated.View>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -283,6 +327,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(139, 92, 246, 0.12)',
     top: height * 0.15,
     left: 30,
+  },
+  activityIcon: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    top: height * 0.25,
+    left: 50,
+  },
+  usersIcon: {
+    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+    top: height * 0.40,
+    left: 20,
   },
   content: {
     flex: 1,
@@ -379,21 +433,21 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     width: '100%',
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
     shadowColor: '#14b8a6',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 12,
-    marginBottom: 10,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 16,
+    marginBottom: 16,
   },
   primaryButtonGradient: {
-    paddingVertical: 20,
+    paddingVertical: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
   },
   primaryButtonText: {
     fontSize: 18,
@@ -404,11 +458,26 @@ const styles = StyleSheet.create({
   secondaryButton: {
     paddingVertical: 16,
     paddingHorizontal: 24,
+    borderRadius: 16,
+    backgroundColor: 'rgba(248, 250, 252, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  secondaryButtonContent: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   secondaryButtonText: {
     fontSize: 16,
     fontFamily: 'Inter-Medium',
     color: '#64748b',
+    textAlign: 'center',
+  },
+  secondaryButtonAccent: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#14b8a6',
     textAlign: 'center',
   },
   logoContainer: {
@@ -436,5 +505,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  featuresContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 32,
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  featureItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  featureIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  featureText: {
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });
