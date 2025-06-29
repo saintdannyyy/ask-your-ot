@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { Search, Filter, MapPin, Star, Clock, Heart } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image } from 'react-native';
+import { Search, Filter, MapPin, Star, Clock, Heart, ChevronRight, Award, Calendar } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 
 // Update the type to match your actual data structure
@@ -136,33 +137,67 @@ export default function SearchScreen() {
     Alert.alert('Booking', 'Appointment booking will be implemented in the next update!');
   };
 
+  const handleViewProfile = (therapistId: string) => {
+    Alert.alert('Profile', 'Profile view will be implemented in the next update!');
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Finding therapists...</Text>
+        <LinearGradient
+          colors={['#14B8A6', '#0d9488']}
+          style={styles.loadingGradient}
+        >
+          <Heart size={32} color="#ffffff" />
+        </LinearGradient>
+        <Text style={styles.loadingText}>Finding the best therapists for you...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Find Your Therapist</Text>
-        <Text style={styles.subtitle}>Connect with certified occupational therapists</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBox}>
-          <Search size={20} color="#64748b" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or specialty"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+      {/* Enhanced Header with Gradient */}
+      <LinearGradient
+        colors={['#14B8A6', '#0d9488', '#0f766e']}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Find Your Therapist</Text>
+          <Text style={styles.subtitle}>Connect with certified occupational therapists</Text>
+          <Text style={styles.resultCount}>
+            {filteredTherapists.length} therapist{filteredTherapists.length !== 1 ? 's' : ''} available
+          </Text>
         </View>
+      </LinearGradient>
+
+      {/* Enhanced Search Container */}
+      <View style={styles.searchSection}>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBox}>
+            <Search size={20} color="#14B8A6" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by name, specialty, or condition"
+              placeholderTextColor="#94a3b8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Text style={styles.clearButton}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Enhanced Filter Button */}
+        <TouchableOpacity style={styles.filterButton}>
+          <Filter size={20} color="#14B8A6" />
+        </TouchableOpacity>
       </View>
 
+      {/* Enhanced Specialty Chips */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.specialtyScroll}>
         <View style={styles.specialtyContainer}>
           <TouchableOpacity
@@ -170,7 +205,7 @@ export default function SearchScreen() {
             onPress={() => setSelectedSpecialty('')}
           >
             <Text style={[styles.specialtyText, !selectedSpecialty && styles.selectedSpecialtyText]}>
-              All
+              All Specialties
             </Text>
           </TouchableOpacity>
           {specialties.map((specialty) => (
@@ -187,63 +222,99 @@ export default function SearchScreen() {
         </View>
       </ScrollView>
 
+      {/* Enhanced Therapist List */}
       <ScrollView style={styles.therapistList} showsVerticalScrollIndicator={false}>
         {filteredTherapists.length === 0 ? (
           <View style={styles.emptyState}>
-            <Heart size={48} color="#cbd5e1" />
+            <View style={styles.emptyIconContainer}>
+              <Heart size={48} color="#cbd5e1" />
+            </View>
             <Text style={styles.emptyTitle}>No therapists found</Text>
             <Text style={styles.emptyDescription}>
-              Try adjusting your search criteria or check back later for new therapists.
+              Try adjusting your search criteria or check back later for new therapists joining our platform.
             </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => setSearchQuery('')}>
+              <Text style={styles.retryButtonText}>Clear Search</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.therapistContainer}>
             {filteredTherapists.map((therapist) => {
               return (
-                <View key={therapist.id} style={styles.therapistCard}>
+                <TouchableOpacity 
+                  key={therapist.id} 
+                  style={styles.therapistCard}
+                  onPress={() => handleViewProfile(therapist.id)}
+                  activeOpacity={0.98}
+                >
+                  {/* Card Header with Enhanced Avatar */}
                   <View style={styles.therapistHeader}>
-                    <View style={styles.avatarContainer}>
-                      <Text style={styles.avatarText}>
-                        {therapist.user_name?.charAt(0).toUpperCase() || 'T'}
-                      </Text>
+                    <View style={styles.avatarSection}>
+                      {therapist.user_photo_url ? (
+                        <Image source={{ uri: therapist.user_photo_url }} style={styles.avatarImage} />
+                      ) : (
+                        <LinearGradient
+                          colors={['#14B8A6', '#0d9488']}
+                          style={styles.avatarContainer}
+                        >
+                          <Text style={styles.avatarText}>
+                            {therapist.user_name?.charAt(0).toUpperCase() || 'T'}
+                          </Text>
+                        </LinearGradient>
+                      )}
+                      <View style={styles.verifiedBadge}>
+                        <Award size={12} color="#ffffff" />
+                      </View>
                     </View>
+
                     <View style={styles.therapistInfo}>
-                      <Text style={styles.therapistName}>
-                        {therapist.user_name || 'Unknown Therapist'}
-                      </Text>
-                      <View style={styles.locationContainer}>
-                        <MapPin size={14} color="#64748b" />
-                        <Text style={styles.locationText}>
-                          {therapist.user_location || 'Remote'}
+                      <View style={styles.nameSection}>
+                        <Text style={styles.therapistName}>
+                          {therapist.user_name || 'Unknown Therapist'}
                         </Text>
+                        <View style={styles.ratingContainer}>
+                          <Star size={12} color="#f59e0b" fill="#f59e0b" />
+                          <Text style={styles.ratingText}>4.8</Text>
+                        </View>
                       </View>
-                      <View style={styles.experienceContainer}>
-                        <Star size={14} color="#f59e0b" />
-                        <Text style={styles.experienceText}>{therapist.experience_years} years exp.</Text>
+                      
+                      <View style={styles.metaInfo}>
+                        <View style={styles.locationContainer}>
+                          <MapPin size={12} color="#64748b" />
+                          <Text style={styles.locationText}>
+                            {therapist.user_location || 'Remote'}
+                          </Text>
+                        </View>
+                        <View style={styles.experienceContainer}>
+                          <Calendar size={12} color="#64748b" />
+                          <Text style={styles.experienceText}>{therapist.experience_years} years</Text>
+                        </View>
                       </View>
                     </View>
-                    {therapist.hourly_rate && (
-                      <View style={styles.rateContainer}>
-                        <Text style={styles.rateText}>₵{therapist.hourly_rate}/hr</Text>
-                      </View>
-                    )}
+
+                    <View style={styles.priceSection}>
+                      <Text style={styles.priceLabel}>From</Text>
+                      <Text style={styles.priceText}>₵{therapist.hourly_rate}</Text>
+                      <Text style={styles.priceUnit}>/session</Text>
+                    </View>
                   </View>
 
-                  <Text style={styles.bio} numberOfLines={3}>
+                  {/* Bio Section */}
+                  <Text style={styles.bio} numberOfLines={2}>
                     {therapist.bio}
                   </Text>
 
-                  {/* Handle null specialties */}
+                  {/* Enhanced Specialty Tags */}
                   {therapist.specialties && therapist.specialties.length > 0 ? (
                     <View style={styles.specialtyTags}>
-                      {therapist.specialties.slice(0, 3).map((specialty, index) => (
+                      {therapist.specialties.slice(0, 2).map((specialty, index) => (
                         <View key={index} style={styles.specialtyTag}>
                           <Text style={styles.specialtyTagText}>{specialty}</Text>
                         </View>
                       ))}
-                      {therapist.specialties.length > 3 && (
-                        <View style={styles.specialtyTag}>
-                          <Text style={styles.specialtyTagText}>+{therapist.specialties.length - 3} more</Text>
+                      {therapist.specialties.length > 2 && (
+                        <View style={styles.moreSpecialtiesTag}>
+                          <Text style={styles.moreSpecialtiesText}>+{therapist.specialties.length - 2} more</Text>
                         </View>
                       )}
                     </View>
@@ -255,23 +326,42 @@ export default function SearchScreen() {
                     </View>
                   )}
 
+                  {/* Credentials */}
                   <View style={styles.credentialsContainer}>
+                    <Award size={14} color="#64748b" />
                     <Text style={styles.credentialsText}>{therapist.credentials}</Text>
                   </View>
 
+                  {/* Enhanced Action Buttons */}
                   <View style={styles.therapistActions}>
-                    <TouchableOpacity style={styles.viewProfileButton}>
+                    <TouchableOpacity 
+                      style={styles.viewProfileButton}
+                      onPress={() => handleViewProfile(therapist.id)}
+                    >
                       <Text style={styles.viewProfileText}>View Profile</Text>
+                      <ChevronRight size={16} color="#14B8A6" />
                     </TouchableOpacity>
+                    
                     <TouchableOpacity
                       style={styles.bookButton}
                       onPress={() => handleBookAppointment(therapist.id)}
                     >
-                      <Clock size={16} color="#ffffff" />
-                      <Text style={styles.bookButtonText}>Book Now</Text>
+                      <LinearGradient
+                        colors={['#14B8A6', '#0d9488']}
+                        style={styles.bookButtonGradient}
+                      >
+                        <Clock size={16} color="#ffffff" />
+                        <Text style={styles.bookButtonText}>Book Session</Text>
+                      </LinearGradient>
                     </TouchableOpacity>
                   </View>
-                </View>
+
+                  {/* Available indicator */}
+                  <View style={styles.availabilityIndicator}>
+                    <View style={styles.availableDot} />
+                    <Text style={styles.availabilityText}>Available today</Text>
+                  </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -291,43 +381,73 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
+    paddingHorizontal: 24,
+  },
+  loadingGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   loadingText: {
     fontSize: 16,
     fontFamily: 'Inter-Medium',
     color: '#64748b',
-    marginTop: 16,
+    textAlign: 'center',
+  },
+  headerGradient: {
+    paddingTop: 30,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 24,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontFamily: 'Inter-Bold',
-    color: '#1e293b',
+    color: '#ffffff',
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 12,
+  },
+  resultCount: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  searchSection: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 12,
   },
   searchContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 20,
+    flex: 1,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
+    paddingVertical: 5,
+    borderWidth: 2,
     borderColor: '#e2e8f0',
     gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
@@ -335,21 +455,46 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#1e293b',
   },
+  clearButton: {
+    fontSize: 16,
+    color: '#94a3b8',
+    fontWeight: 'bold',
+  },
+  filterButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    width: 52,
+    height: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
   specialtyScroll: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   specialtyContainer: {
     flexDirection: 'row',
     paddingHorizontal: 24,
-    gap: 8,
+    gap: 12,
   },
   specialtyChip: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderWidth: 1,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderWidth: 2,
     borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   selectedSpecialty: {
     backgroundColor: '#14B8A6',
@@ -357,7 +502,7 @@ const styles = StyleSheet.create({
   },
   specialtyText: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter-SemiBold',
     color: '#64748b',
   },
   selectedSpecialtyText: {
@@ -371,66 +516,128 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 60,
   },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
   emptyTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 20,
+    fontFamily: 'Inter-Bold',
     color: '#1e293b',
-    marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   emptyDescription: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#64748b',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  retryButton: {
+    backgroundColor: '#14B8A6',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#ffffff',
   },
   therapistContainer: {
     paddingHorizontal: 24,
     paddingBottom: 32,
-    gap: 16,
+    gap: 20,
   },
   therapistCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   therapistHeader: {
     flexDirection: 'row',
     marginBottom: 16,
+    alignItems: 'flex-start',
+  },
+  avatarSection: {
+    position: 'relative',
+    marginRight: 16,
   },
   avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#14B8A6',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
   avatarText: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: 'Inter-Bold',
     color: '#ffffff',
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10b981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
   therapistInfo: {
     flex: 1,
   },
+  nameSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   therapistName: {
-    fontSize: 16,
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: '#1e293b',
+    flex: 1,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 14,
     fontFamily: 'Inter-SemiBold',
     color: '#1e293b',
-    marginBottom: 4,
+  },
+  metaInfo: {
+    flexDirection: 'row',
+    gap: 16,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
     gap: 4,
   },
   locationText: {
@@ -448,81 +655,133 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#64748b',
   },
-  rateContainer: {
+  priceSection: {
     alignItems: 'flex-end',
   },
-  rateText: {
-    fontSize: 16,
+  priceLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#64748b',
+  },
+  priceText: {
+    fontSize: 20,
     fontFamily: 'Inter-Bold',
     color: '#14B8A6',
   },
-  bio: {
-    fontSize: 14,
+  priceUnit: {
+    fontSize: 12,
     fontFamily: 'Inter-Regular',
     color: '#64748b',
-    lineHeight: 20,
+  },
+  bio: {
+    fontSize: 15,
+    fontFamily: 'Inter-Regular',
+    color: '#64748b',
+    lineHeight: 22,
     marginBottom: 16,
   },
   specialtyTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   specialtyTag: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
+    backgroundColor: '#eff6ff',
+    borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
   },
   specialtyTagText: {
     fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: '#3b82f6',
+  },
+  moreSpecialtiesTag: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  moreSpecialtiesText: {
+    fontSize: 12,
     fontFamily: 'Inter-Medium',
-    color: '#475569',
+    color: '#64748b',
+  },
+  credentialsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    gap: 8,
+  },
+  credentialsText: {
+    fontSize: 13,
+    fontFamily: 'Inter-Regular',
+    color: '#64748b',
+    flex: 1,
   },
   therapistActions: {
     flexDirection: 'row',
     gap: 12,
+    marginBottom: 12,
   },
   viewProfileButton: {
     flex: 1,
     backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#e2e8f0',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
   },
   viewProfileText: {
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
-    color: '#1e293b',
+    color: '#14B8A6',
   },
   bookButton: {
     flex: 1,
-    backgroundColor: '#14B8A6',
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  bookButtonGradient: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   bookButtonText: {
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'Inter-Bold',
     color: '#ffffff',
   },
-  credentialsContainer: {
-    marginBottom: 16,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+  availabilityIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  credentialsText: {
+  availableDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10b981',
+  },
+  availabilityText: {
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: '#64748b',
-    fontStyle: 'italic',
+    fontFamily: 'Inter-Medium',
+    color: '#10b981',
   },
 });
