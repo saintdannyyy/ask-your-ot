@@ -47,71 +47,53 @@ export default function SearchScreen() {
     try {
       console.log('Loading therapists...');
       
-      // Get approved therapist profiles
-      const { data: profiles, error: profileError } = await supabase
+      // Use a single query with join to get both profile and user data
+      const { data, error } = await supabase
         .from('therapist_profiles')
-        .select('*')
+        .select(`
+          *,
+          users!therapist_profiles_user_id_fkey (
+            id,
+            name,
+            photo_url,
+            location
+          )
+        `)
         .eq('is_approved', true);
 
-      if (profileError) {
-        console.error('Profile error:', profileError);
-        throw profileError;
+      if (error) {
+        console.error('Error loading therapists:', error);
+        throw error;
       }
 
-      console.log('Therapist profiles loaded:', profiles?.length);
+      console.log('Raw data from Supabase:', data);
 
-      if (!profiles || profiles.length === 0) {
+      if (!data || data.length === 0) {
         console.log('No approved therapist profiles found');
         setTherapists([]);
         return;
       }
 
-      // Get user data for each therapist
-      const userIds = profiles.map(p => p.user_id);
-      console.log('Getting users for IDs:', userIds);
+      // Transform the data to flatten the user information
+      const transformedTherapists = data.map(therapist => ({
+        ...therapist,
+        user_name: therapist.users?.name || 'Unknown',
+        user_photo_url: therapist.users?.photo_url || null,
+        user_location: therapist.users?.location || null,
+      }));
 
-      const { data: users, error: userError } = await supabase
-        .from('users')
-        .select('id, name, photo_url, location')
-        .in('id', userIds);
-      if (userError) {
-        console.error('User error:', userError);
-        throw userError;
-      }
+      console.log('Transformed therapists:', transformedTherapists.length);
+      console.log('Sample therapist:', transformedTherapists[0]);
 
-      console.log('Users loaded:', users?.length);
-
-      // Manually join the data
-      const therapistsWithUsers = profiles.map(profile => {
-        const user = users?.find(u => u.id === profile.user_id);
-        
-        if (!user) {
-          console.log(`No user found for therapist ${profile.id} with user_id ${profile.user_id}`);
-        }
-
-        return {
-          ...profile,
-          user_name: user?.name || 'Unknown',
-          user_photo_url: user?.photo_url || null,
-          user_location: user?.location || null,
-        };
-      });
-
-      // Filter out therapists without valid user data
-      const validTherapists = therapistsWithUsers.filter(t => t.user_name !== 'Unknown');
-      
-      console.log('Valid therapists:', validTherapists.length);
-      console.log('Sample therapist:', validTherapists[0]);
-
-      setTherapists(validTherapists);
-
+      setTherapists(transformedTherapists);
     } catch (error) {
       console.error('Error loading therapists:', error);
-      Alert.alert('Error', 'Failed to load therapists. Please try again.');
+      Alert.alert('Error', 'Failed to load therapists');
     } finally {
       setLoading(false);
     }
   };
+
 
   const filteredTherapists = therapists.filter(therapist => {
     const name = therapist.user_name?.toLowerCase() || '';
@@ -482,12 +464,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 24,
     gap: 12,
+        height:50,
+
   },
   specialtyChip: {
     backgroundColor: '#ffffff',
     borderRadius: 24,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderWidth: 2,
     borderColor: '#e2e8f0',
     shadowColor: '#000',
