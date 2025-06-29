@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
-import { Calendar, MessageCircle, TrendingUp, Heart, Clock, Users } from 'lucide-react-native';
+import { Calendar, MessageCircle, TrendingUp, Heart, Clock, Users, ArrowRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
   const { userProfile } = useAuth();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
     upcomingAppointments: 0,
@@ -80,6 +82,31 @@ export default function HomeScreen() {
     return 'Good evening';
   };
 
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'find-therapist':
+        router.push('/(tabs)/search');
+        break;
+      case 'appointments':
+        router.push('/(tabs)/appointments');
+        break;
+      case 'log-progress':
+        router.push('./(tabs)/progress');
+        break;
+      case 'messages':
+        router.push('./(tabs)/messages');
+        break;
+      case 'schedule':
+        router.push('./(tabs)/schedule');
+        break;
+      case 'progress-reviews':
+        router.push('./(tabs)/progress');
+        break;
+      default:
+        console.log('Action not implemented:', action);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -136,54 +163,108 @@ export default function HomeScreen() {
           
           {isTherapist ? (
             <View style={styles.actionGrid}>
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={styles.actionIcon}>
-                  <Calendar size={24} color="#ffffff" />
+              <TouchableOpacity 
+                style={[styles.actionCard, styles.scheduleCard]}
+                onPress={() => handleQuickAction('schedule')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, styles.scheduleIcon]}>
+                    <Calendar size={24} color="#ffffff" />
+                  </View>
+                  <View style={styles.actionTextContainer}>
+                    <Text style={styles.actionTitle}>Manage Schedule</Text>
+                    <Text style={styles.actionDescription}>Set your availability</Text>
+                  </View>
                 </View>
-                <Text style={styles.actionTitle}>Manage Schedule</Text>
-                <Text style={styles.actionDescription}>Set your availability</Text>
+                <ArrowRight size={20} color="rgba(255, 255, 255, 0.8)" />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={styles.actionIcon}>
-                  <MessageCircle size={24} color="#ffffff" />
+              <TouchableOpacity 
+                style={[styles.actionCard, styles.messagesCard]}
+                onPress={() => handleQuickAction('messages')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, styles.messagesIcon]}>
+                    <MessageCircle size={24} color="#ffffff" />
+                  </View>
+                  <View style={styles.actionTextContainer}>
+                    <Text style={styles.actionTitle}>Client Messages</Text>
+                    <Text style={styles.actionDescription}>Respond to clients</Text>
+                  </View>
                 </View>
-                <Text style={styles.actionTitle}>Client Messages</Text>
-                <Text style={styles.actionDescription}>Respond to clients</Text>
+                <ArrowRight size={20} color="rgba(255, 255, 255, 0.8)" />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={styles.actionIcon}>
-                  <TrendingUp size={24} color="#ffffff" />
+              <TouchableOpacity 
+                style={[styles.actionCard, styles.progressCard]}
+                onPress={() => handleQuickAction('progress-reviews')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, styles.progressIcon]}>
+                    <TrendingUp size={24} color="#ffffff" />
+                  </View>
+                  <View style={styles.actionTextContainer}>
+                    <Text style={styles.actionTitle}>Progress Reviews</Text>
+                    <Text style={styles.actionDescription}>Check client progress</Text>
+                  </View>
                 </View>
-                <Text style={styles.actionTitle}>Progress Reviews</Text>
-                <Text style={styles.actionDescription}>Check client progress</Text>
+                <ArrowRight size={20} color="rgba(255, 255, 255, 0.8)" />
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.actionGrid}>
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={styles.actionIcon}>
-                  <Heart size={24} color="#ffffff" />
+              <TouchableOpacity 
+                style={[styles.actionCard, styles.findTherapistCard]}
+                onPress={() => handleQuickAction('find-therapist')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, styles.findTherapistIcon]}>
+                    <Heart size={24} color="#ffffff" />
+                  </View>
+                  <View style={styles.actionTextContainer}>
+                    <Text style={styles.actionTitle}>Find Therapist</Text>
+                    <Text style={styles.actionDescription}>Book a session</Text>
+                  </View>
                 </View>
-                <Text style={styles.actionTitle}>Find Therapist</Text>
-                <Text style={styles.actionDescription}>Book a session</Text>
+                <ArrowRight size={20} color="rgba(255, 255, 255, 0.8)" />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={styles.actionIcon}>
-                  <TrendingUp size={24} color="#ffffff" />
+              {/* <TouchableOpacity 
+                style={[styles.actionCard, styles.logProgressCard]}
+                onPress={() => handleQuickAction('log-progress')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, styles.logProgressIcon]}>
+                    <TrendingUp size={24} color="#ffffff" />
+                  </View>
+                  <View style={styles.actionTextContainer}>
+                    <Text style={styles.actionTitle}>Log Progress</Text>
+                    <Text style={styles.actionDescription}>Track your journey</Text>
+                  </View>
                 </View>
-                <Text style={styles.actionTitle}>Log Progress</Text>
-                <Text style={styles.actionDescription}>Track your journey</Text>
-              </TouchableOpacity>
+                <ArrowRight size={20} color="rgba(255, 255, 255, 0.8)" />
+              </TouchableOpacity> */}
 
-              <TouchableOpacity style={styles.actionCard}>
-                <View style={styles.actionIcon}>
-                  <Clock size={24} color="#ffffff" />
+              <TouchableOpacity 
+                style={[styles.actionCard, styles.appointmentsCard]}
+                onPress={() => handleQuickAction('appointments')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, styles.appointmentsIcon]}>
+                    <Clock size={24} color="#ffffff" />
+                  </View>
+                  <View style={styles.actionTextContainer}>
+                    <Text style={styles.actionTitle}>Appointments</Text>
+                    <Text style={styles.actionDescription}>View schedule</Text>
+                  </View>
                 </View>
-                <Text style={styles.actionTitle}>Appointments</Text>
-                <Text style={styles.actionDescription}>View schedule</Text>
+                <ArrowRight size={20} color="rgba(255, 255, 255, 0.8)" />
               </TouchableOpacity>
             </View>
           )}
@@ -280,11 +361,21 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionCard: {
-    backgroundColor: '#14B8A6',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  actionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   actionIcon: {
     width: 48,
@@ -293,18 +384,68 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  actionTextContainer: {
+    flex: 1,
   },
   actionTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
     color: '#ffffff',
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   actionDescription: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 15,
+    fontFamily: 'Inter-Medium',
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 20,
+  },
+  
+  // Individual card colors
+  findTherapistCard: {
+    backgroundColor: '#14B8A6',
+  },
+  findTherapistIcon: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  logProgressCard: {
+    backgroundColor: '#10B981',
+  },
+  logProgressIcon: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  appointmentsCard: {
+    backgroundColor: '#3B82F6',
+  },
+  appointmentsIcon: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  
+  // Therapist card colors
+  scheduleCard: {
+    backgroundColor: '#8B5CF6',
+  },
+  scheduleIcon: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  messagesCard: {
+    backgroundColor: '#06B6D4',
+  },
+  messagesIcon: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  progressCard: {
+    backgroundColor: '#F59E0B',
+  },
+  progressIcon: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   recentActivity: {
     paddingHorizontal: 24,
