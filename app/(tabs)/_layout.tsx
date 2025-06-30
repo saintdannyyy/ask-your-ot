@@ -1,10 +1,13 @@
 import { Tabs } from 'expo-router';
-import { Chrome as Home, Calendar, MessageCircle, User, Search, BookOpen, SearchIcon, HomeIcon } from 'lucide-react-native';
+import { Calendar, MessageCircle, User, Search, Home } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
   const { userProfile } = useAuth();
   const isTherapist = userProfile?.role === 'therapist';
+
+  console.log('User Profile:', userProfile); // Debug log
+  console.log('Is Therapist:', isTherapist); // Debug log
 
   return (
     <Tabs
@@ -27,24 +30,27 @@ export default function TabLayout() {
         },
       }}
     >
+      {/* Home Tab - Always visible */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ size, color }) => <HomeIcon size={size} color={color} />,
+          tabBarIcon: ({ size, color }) => <Home size={size} color={color} />,
         }}
       />
       
-      {!isTherapist && (
-        <Tabs.Screen
-          name="search"
-          options={{
-            title: 'Find Therapists',
-            tabBarIcon: ({ size, color }) => <SearchIcon size={size} color={color} />,
-          }}
-        />
-      )}
+      {/* Search Tab - Only for clients (NOT therapists) */}
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ size, color }) => <Search size={size} color={color} />,
+          // Hide this tab for therapists
+          href: isTherapist ? null : undefined,
+        }}
+      />
 
+      {/* Appointments Tab - Always visible */}
       <Tabs.Screen
         name="appointments"
         options={{
@@ -53,6 +59,7 @@ export default function TabLayout() {
         }}
       />
 
+      {/* Messages Tab - Always visible */}
       <Tabs.Screen
         name="messages"
         options={{
@@ -61,19 +68,20 @@ export default function TabLayout() {
         }}
       />
 
-      {/* <Tabs.Screen
-        name="education"
-        options={{
-          title: 'Learn',
-          tabBarIcon: ({ size, color }) => <BookOpen size={size} color={color} />,
-        }}
-      /> */}
-
+      {/* Profile Tab - Always visible */}
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ size, color }) => <User size={size} color={color} />,
+        }}
+      />
+
+      {/* Hide education tab from navigation but keep file structure */}
+      <Tabs.Screen
+        name="education"
+        options={{
+          href: null, // This hides the tab from navigation
         }}
       />
     </Tabs>
