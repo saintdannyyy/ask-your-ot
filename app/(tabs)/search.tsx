@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image } from 'react-native';
 import { Search, Filter, MapPin, Star, Clock, Heart, ChevronRight, Award, Calendar } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router'; // Add this import
 import { supabase } from '@/lib/supabase';
 
 // Update the type to match your actual data structure
@@ -17,7 +18,7 @@ type TherapistProfile = {
   is_approved: boolean;
   created_at: string;
   updated_at: string;
-  user_name: string;
+  name: string;
   user_photo_url: string | null;
   user_location: string | null;
 };
@@ -47,45 +48,58 @@ export default function SearchScreen() {
     try {
       console.log('Loading therapists...');
       
-      // Use a single query with join to get both profile and user data
-      const { data, error } = await supabase
+      // Fetch therapist_profiles
+      const { data: therapists, error: therapistError } = await supabase
         .from('therapist_profiles')
-        .select(`
-          *,
-          users!therapist_profiles_user_id_fkey (
-            id,
-            name,
-            photo_url,
-            location
-          )
-        `)
+        .select('*')
         .eq('is_approved', true);
 
-      if (error) {
-        console.error('Error loading therapists:', error);
-        throw error;
+      if (therapistError) {
+        console.error('Therapist fetch error:', therapistError);
+        throw therapistError;
       }
 
-      console.log('Raw data from Supabase:', data);
+      // Fetch users
+      const { data: users, error: userError } = await supabase
+        .from('users')
+        .select('id, name, photo_url, location');
 
-      if (!data || data.length === 0) {
+      if (userError) {
+        console.error('User fetch error:', userError);
+        throw userError;
+      }
+
+      console.log('Raw therapist data:', therapists);
+      console.log('Raw user data:', users);
+
+      if (!therapists || therapists.length === 0) {
         console.log('No approved therapist profiles found');
         setTherapists([]);
         return;
       }
 
-      // Transform the data to flatten the user information
-      const transformedTherapists = data.map(therapist => ({
-        ...therapist,
-        user_name: therapist.users?.name || 'Unknown',
-        user_photo_url: therapist.users?.photo_url || null,
-        user_location: therapist.users?.location || null,
-      }));
+      if (!users || users.length === 0) {
+        console.log('No users found');
+        setTherapists([]);
+        return;
+      }
 
-      console.log('Transformed therapists:', transformedTherapists.length);
-      console.log('Sample therapist:', transformedTherapists[0]);
+      // Merge manually
+      const mergedProfiles = therapists.map(therapist => {
+        const user = users.find(u => u.id === therapist.user_id);
+        return {
+          ...therapist,
+          name: user?.name || 'Anonymous',
+          user_photo_url: user?.photo_url || null,
+          user_location: user?.location || null,
+          user // attach user info under 'user' for reference
+        };
+      });
 
-      setTherapists(transformedTherapists);
+      console.log('Merged profiles:', mergedProfiles.length);
+      console.log('Sample merged profile:', mergedProfiles[0]);
+
+      setTherapists(mergedProfiles);
     } catch (error) {
       console.error('Error loading therapists:', error);
       Alert.alert('Error', 'Failed to load therapists');
@@ -96,7 +110,8 @@ export default function SearchScreen() {
 
 
   const filteredTherapists = therapists.filter(therapist => {
-    const name = therapist.user_name?.toLowerCase() || '';
+    // const name = therapist.name?.toLowerCase() || '';
+    const name = therapist.name?.toLowerCase() || '';
     const query = searchQuery.toLowerCase();
     const bio = therapist.bio?.toLowerCase() || '';
 
@@ -116,11 +131,11 @@ export default function SearchScreen() {
   });
 
   const handleBookAppointment = (therapistId: string) => {
-    Alert.alert('Booking', 'Appointment booking will be implemented in the next update!');
+    router.push(`./appointments/${therapistId}`);
   };
 
   const handleViewProfile = (therapistId: string) => {
-    Alert.alert('Profile', 'Profile view will be implemented in the next update!');
+    router.push(`../therapist/${therapistId}`);
   };
 
   if (loading) {
@@ -180,8 +195,13 @@ export default function SearchScreen() {
       </View>
 
       {/* Enhanced Specialty Chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.specialtyScroll}>
-        <View style={styles.specialtyContainer}>
+      <View style={styles.specialtySection}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={styles.specialtyScroll}
+          contentContainerStyle={styles.specialtyScrollContent}
+        >
           <TouchableOpacity
             style={[styles.specialtyChip, !selectedSpecialty && styles.selectedSpecialty]}
             onPress={() => setSelectedSpecialty('')}
@@ -201,8 +221,8 @@ export default function SearchScreen() {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* Enhanced Therapist List */}
       <ScrollView style={styles.therapistList} showsVerticalScrollIndicator={false}>
@@ -240,7 +260,7 @@ export default function SearchScreen() {
                           style={styles.avatarContainer}
                         >
                           <Text style={styles.avatarText}>
-                            {therapist.user_name?.charAt(0).toUpperCase() || 'T'}
+                            {therapist.name?.charAt(0).toUpperCase() || 'T'}
                           </Text>
                         </LinearGradient>
                       )}
@@ -252,7 +272,7 @@ export default function SearchScreen() {
                     <View style={styles.therapistInfo}>
                       <View style={styles.nameSection}>
                         <Text style={styles.therapistName}>
-                          {therapist.user_name || 'Unknown Therapist'}
+                          {therapist.name || 'Unknown Therapist'}
                         </Text>
                         <View style={styles.ratingContainer}>
                           <Star size={12} color="#f59e0b" fill="#f59e0b" />
@@ -457,21 +477,25 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  specialtyScroll: {
+  specialtySection: {
     marginBottom: 24,
+  },
+  specialtyScroll: {
+    flexGrow: 0,
+  },
+  specialtyScrollContent: {
+    paddingHorizontal: 24,
+    paddingRight: 48, // Extra padding at the end
   },
   specialtyContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
     gap: 12,
-        height:50,
-
   },
   specialtyChip: {
     backgroundColor: '#ffffff',
     borderRadius: 24,
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderWidth: 2,
     borderColor: '#e2e8f0',
     shadowColor: '#000',
@@ -479,6 +503,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    marginRight: 12,
   },
   selectedSpecialty: {
     backgroundColor: '#14B8A6',
