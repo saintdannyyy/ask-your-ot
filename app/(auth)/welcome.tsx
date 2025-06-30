@@ -89,6 +89,38 @@ export default function WelcomeScreen() {
       colors={['#ffffff', '#f8fafc', '#ffffff']}
       style={styles.container}
     >
+      {/* Background Hero Image Section */}
+      <Animated.View 
+        style={[
+          styles.backgroundImageSection,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        <View style={styles.backgroundImageContainer}>
+          <Image
+            source={require('../../assets/images/ot.png')}
+            style={styles.backgroundHeroImage}
+            resizeMode="cover"
+          />
+        </View>
+        
+        {/* Background Tool Indicators */}
+        <Animated.View 
+          style={[
+            styles.backgroundToolIndicators,
+            {
+              transform: [{ translateY: floatingTranslateY }],
+            },
+          ]}
+        >
+          <View style={styles.clipboardIndicator} />
+          <View style={styles.ballIndicator} />
+        </Animated.View>
+      </Animated.View>
+
       {/* Animated floating elements */}
       <Animated.View 
         style={[
@@ -124,7 +156,7 @@ export default function WelcomeScreen() {
       <View style={styles.content}>
         {/* Animated Hero Section */}
         <View style={styles.heroSection}>
-          <Animated.View 
+          {/* <Animated.View 
             style={[
               styles.titleContainer,
               {
@@ -154,39 +186,10 @@ export default function WelcomeScreen() {
             </View>
             <Text style={styles.tagline}>Connect • Care • Heal</Text>
             <View style={styles.titleUnderline} />
-          </Animated.View>
+          </Animated.View> */}
           
-          {/* Animated image container */}
-          <Animated.View 
-            style={[
-              styles.imageSection,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-          >
-            <View style={styles.imageContainer}>
-              <Image
-                source={require('../../assets/images/ot.png')}
-                style={styles.heroImage}
-                resizeMode="cover"
-              />
-            </View>
-            
-            {/* Animated tool indicators */}
-            <Animated.View 
-              style={[
-                styles.toolIndicators,
-                {
-                  transform: [{ translateY: floatingTranslateY }],
-                },
-              ]}
-            >
-              <View style={styles.clipboardIndicator} />
-              <View style={styles.ballIndicator} />
-            </Animated.View>
-          </Animated.View>
+          {/* Content now appears over the background image */}
+          <View style={styles.contentSpacing} />
           
           <Animated.Text 
             style={[
@@ -212,21 +215,21 @@ export default function WelcomeScreen() {
           >
             <View style={styles.featureItem}>
               <View style={styles.featureIcon}>
-                <Shield size={16} color="#14b8a6" />
+                <Shield size={30} color="#14b8a6" />
               </View>
-              <Text style={styles.featureText}>Certified Therapists</Text>
+                <Text style={styles.featureText}>Certified {'\n'}Therapists</Text>
             </View>
             <View style={styles.featureItem}>
               <View style={styles.featureIcon}>
-                <Clock size={16} color="#14b8a6" />
+                <Clock size={30} color="#14b8a6" />
               </View>
-              <Text style={styles.featureText}>Flexible Scheduling</Text>
+              <Text style={styles.featureText}>Flexible {'\n'}Scheduling</Text>
             </View>
             <View style={styles.featureItem}>
               <View style={styles.featureIcon}>
-                <Heart size={16} color="#14b8a6" />
+                <Heart size={30} color="#14b8a6" />
               </View>
-              <Text style={styles.featureText}>Personalized Care</Text>
+              <Text style={styles.featureText}>Personalized {'\n'}Care</Text>
             </View>
           </Animated.View>
         </View>
@@ -277,10 +280,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
+  // Background image section - positioned behind everything
+  backgroundImageSection: {
+    position: 'absolute',
+    top: 80,
+    left: 32,
+    right: 32,
+    alignItems: 'center',
+    zIndex: 0,
+  },
+  backgroundImageContainer: {
+    width: 300,
+    height: 280,
+    borderRadius: 25,
+    overflow: 'hidden',
+    shadowColor: '#14b8a6',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 40,
+  },
+  backgroundHeroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  backgroundToolIndicators: {
+    flexDirection: 'row',
+    marginTop: 24,
+    gap: 20,
+  },
+  // Floating elements - above background, below content
   floatingElements: {
     position: 'absolute',
     width: '100%',
     height: '100%',
+    zIndex: 1,
   },
   floatingPill: {
     position: 'absolute',
@@ -338,15 +371,20 @@ const styles = StyleSheet.create({
     top: height * 0.40,
     left: 20,
   },
+  // Content - positioned on top
   content: {
     flex: 1,
     paddingHorizontal: 32,
     paddingTop: 80,
+    zIndex: 2,
   },
   heroSection: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
+  },
+  contentSpacing: {
+    height: 320, // Space to account for background image + tool indicators
   },
   titleContainer: {
     alignSelf: 'flex-start',
@@ -373,30 +411,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginTop: 12,
   },
-  imageSection: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  imageContainer: {
-    width: 330,
-    height: 300,
-    borderRadius: 32,
-    overflow: 'hidden',
-    shadowColor: '#14b8a6',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 40,
-    elevation: 20,
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  toolIndicators: {
-    flexDirection: 'row',
-    marginTop: 24,
-    gap: 20,
-  },
   clipboardIndicator: {
     width: 40,
     height: 50,
@@ -421,7 +435,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'Inter-Bold',
     color: '#64748b',
     textAlign: 'center',
     lineHeight: 28,
@@ -432,7 +446,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButton: {
-    width: '100%',
+    width: '110%',
     borderRadius: 28,
     overflow: 'hidden',
     shadowColor: '#14b8a6',
@@ -518,17 +532,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(3, 156, 138, 0.18)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   featureText: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter-Bold',
     color: '#64748b',
     textAlign: 'center',
     lineHeight: 16,
