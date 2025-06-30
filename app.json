@@ -5,15 +5,40 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/ot.jpg",
-    "scheme": "myapp",
+    "scheme": "otconekt",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/ot.jpg",
+      "resizeMode": "cover",
+      "backgroundColor": "#14B8A6"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.saintdannyyy.otconekt",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
+    },
+    "android": {
+      "package": "com.saintdannyyy.otconekt",
+      "versionCode": 3,
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
+      "minSdkVersion": 23,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/ot.jpg",
+        "backgroundColor": "#14B8A6"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -34,9 +59,6 @@
         "projectId": "8163a94a-6dee-4b65-aad6-054b16e08683"
       }
     },
-    "owner": "saintdannyyy",
-    "android": {
-      "package": "com.saintdannyyy.otconekt"
-    }
+    "owner": "saintdannyyy"
   }
 }
