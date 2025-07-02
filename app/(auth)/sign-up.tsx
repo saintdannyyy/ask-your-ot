@@ -55,7 +55,7 @@ export default function SignUpScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <ArrowLeft size={24} color="#1e293b" />
+        <ArrowLeft size={24} color="#ffffff" />
       </TouchableOpacity>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -217,6 +217,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
+    backgroundColor: '#14B8A6',
+    borderRadius: 50,
     top: 50,
     left: 24,
     zIndex: 1,
