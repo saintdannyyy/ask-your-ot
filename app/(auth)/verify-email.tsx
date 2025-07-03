@@ -74,8 +74,15 @@ export default function VerifyEmailScreen() {
           .single();
 
         if (!existingUser) {
-          // Create user record from the passed data
-          console.log('Creating user record with passed data...');
+          // Create user record with ALL the passed signup data
+          console.log('Creating user record with signup data:', {
+            id: userVerification.user_id,
+            email: email as string,
+            name: name as string,
+            role: role as 'client' | 'therapist',
+            phone: phone as string,
+          });
+          
           const { error: userError } = await supabase
             .from('users')
             .insert({
@@ -84,6 +91,8 @@ export default function VerifyEmailScreen() {
               name: name as string || '',
               role: role as 'client' | 'therapist' || 'client',
               phone: phone as string || null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             });
 
           if (userError) {
@@ -92,11 +101,23 @@ export default function VerifyEmailScreen() {
             return;
           }
           
-          console.log('User record created successfully');
+          console.log('✅ User record created successfully with signup data');
         }
 
-        // Navigate to profile setup
-        router.replace('/(auth)/setup-profile');
+        // 🚀 NEW: Navigate directly to setup-profile with all data (NO SESSION CREATION)
+        console.log('🎯 Navigating to setup-profile with signup data...');
+        router.replace({
+          pathname: '/(auth)/setup-profile',
+          params: {
+            email: email as string,
+            name: name as string,
+            role: role as string,
+            phone: phone as string,
+            userId: userVerification.user_id,
+            fromVerification: 'true' // Flag to indicate this came from verification
+          }
+        });
+        
         return;
       } else {
         // Email not verified yet
