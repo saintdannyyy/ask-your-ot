@@ -14,7 +14,7 @@ type TherapistProfile = {
   specialties: string[] | null;
   credentials: string;
   experience_years: number;
-  availability: any[];
+  availability: any[] | null;
   hourly_rate: string;
   is_approved: boolean;
   created_at: string;
@@ -28,7 +28,36 @@ type TherapistProfile = {
   location: string | null;
   
   // Additional computed fields
-  user?: any; // Reference to original user object for debugging
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    photo_url: string | null;
+    location: string | null;
+  };
+};
+
+// Type for the raw response from the RPC function
+type RawTherapistResponse = {
+  therapist_id?: string;
+  id?: string;
+  user_id: string;
+  bio?: string;
+  specialties?: string[] | null;
+  credentials?: string;
+  experience_years?: number;
+  availability?: any[] | null;
+  hourly_rate?: number | string;
+  is_approved?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  // User fields
+  name?: string | null;
+  email?: string;
+  phone?: string | null;
+  photo_url?: string | null;
+  location?: string | null;
 };
 
 export default function SearchScreen() {
@@ -52,179 +81,162 @@ export default function SearchScreen() {
     loadTherapists();
   }, []);
 
-  const loadTherapists = async () => {
-    try {
-      setLoading(true);
-      console.log('🔄 Starting therapist data fetch...');
-      
-      // STEP 1: Fetch approved therapist profiles
-      console.log('📋 Fetching therapist profiles...');
-      const therapistResult = await supabase
-        .from('therapist_profiles')
-        .select('*')
-        .eq('is_approved', true);
+const loadTherapists = async () => {
+  try {
+    setLoading(true);
+    console.log('🔄 Starting therapist data fetch at:', new Date().toISOString());
 
-      const { data: therapistProfiles, error: therapistError } = therapistResult;
+    // STEP 1: Fetch approved therapist profiles with user data using SQL JOIN
+    console.log('📋 Fetching therapist profiles with user data via get_approved_therapists...');
+    const { data: therapistProfiles, error: queryError } = await supabase
+      .rpc('get_approved_therapists', {});
 
-      if (therapistError) {
-        console.error('❌ Therapist profiles fetch error:', therapistError);
-        throw new Error(`Failed to fetch therapist profiles: ${therapistError.message}`);
-      }
-
-      console.log(`✅ Found ${therapistProfiles?.length || 0} approved therapist profiles`);
-
-      // Debugging check: Log what we found
-      if (therapistProfiles && therapistProfiles.length > 0) {
-        console.log('📊 Sample therapist profile:', therapistProfiles[0]);
-        console.log('🔍 User IDs found:', therapistProfiles.map(p => p.user_id));
-      }
-
-      // Early exit if no therapist profiles found
-      if (!therapistProfiles || therapistProfiles.length === 0) {
-        console.log('⚠️ No approved therapist profiles found');
-        setTherapists([]);
-        return;
-      }
-
-      // STEP 2: Extract user IDs from therapist profiles
-      const userIds = therapistProfiles.map(profile => profile.user_id).filter(Boolean);
-      console.log(`🔍 Looking up ${userIds.length} user profiles...`);
-      console.log('🆔 User IDs to fetch:', userIds);
-
-      // STEP 3: Fetch user details for these therapists
-      const usersResult = await supabase
-        .from('users')
-        .select('id, email, name, phone, photo_url, location')
-        .in('id', userIds);
-
-      const { data: users, error: userError } = usersResult;
-
-      if (userError) {
-        console.error('❌ Users fetch error:', userError);
-        throw new Error(`Failed to fetch user details: ${userError.message}`);
-      }
-
-      console.log(`✅ Found ${users?.length || 0} user profiles`);
-
-      // Debugging check: Compare what we asked for vs what we got
-      if (users && users.length > 0) {
-        console.log('👥 Sample user profile:', users[0]);
-        console.log('🔄 Requested user IDs:', userIds);
-        console.log('✅ Received user IDs:', users.map(u => u.id));
-        
-        // Check for missing users
-        const receivedIds = users.map(u => u.id);
-        const missingIds = userIds.filter(id => !receivedIds.includes(id));
-        if (missingIds.length > 0) {
-          console.warn('⚠️ Missing user profiles for IDs:', missingIds);
-        }
-      } else {
-        console.error('❌ No user profiles returned for user IDs:', userIds);
-      }
-
-      // STEP 4: Create lookup map for efficient merging
-      const userMap = new Map();
-      users?.forEach(user => {
-        userMap.set(user.id, user);
-      });
-
-      console.log('🔗 Merging therapist profiles with user data...');
-      console.log(`📊 User map size: ${userMap.size}`);
-
-      // STEP 5: Merge therapist profiles with user data
-      const enrichedTherapists: TherapistProfile[] = therapistProfiles
-        .map((therapist, index) => {
-          const user = userMap.get(therapist.user_id);
-          
-          console.log(`🔍 Processing therapist ${index + 1}:`, {
-            therapist_id: therapist.id,
-            user_id: therapist.user_id,
-            user_found: !!user,
-            user_name: user?.name || 'NOT_FOUND'
-          });
-          
-          if (!user) {
-            console.warn(`⚠️ No user found for therapist profile ${therapist.id} (user_id: ${therapist.user_id})`);
-            return null;
-          }
-
-          // Create merged object with all necessary data
-          const enrichedTherapist: TherapistProfile = {
-            // Therapist profile data
-            id: therapist.id,
-            user_id: therapist.user_id,
-            bio: therapist.bio || '',
-            specialties: therapist.specialties || [],
-            credentials: therapist.credentials || '',
-            experience_years: therapist.experience_years || 0,
-            availability: therapist.availability || [],
-            hourly_rate: therapist.hourly_rate?.toString() || '0',
-            is_approved: therapist.is_approved,
-            created_at: therapist.created_at,
-            updated_at: therapist.updated_at,
-            
-            // User data (personal details)
-            name: user.name || 'Licensed Therapist',
-            email: user.email || '',
-            phone: user.phone || null,
-            photo_url: user.photo_url || null,
-            location: user.location || null,
-            
-            // Debug reference
-            user: user
-          };
-
-          console.log(`✅ Successfully merged therapist: ${enrichedTherapist.name}`);
-          return enrichedTherapist;
-        })
-        .filter((therapist): therapist is TherapistProfile => therapist !== null);
-
-      console.log(`✅ Successfully merged ${enrichedTherapists.length} therapist profiles`);
-      
-      // Final debugging check
-      if (enrichedTherapists.length > 0) {
-        console.log('📊 Sample merged profile:', {
-          id: enrichedTherapists[0].id,
-          name: enrichedTherapists[0].name,
-          specialties: enrichedTherapists[0].specialties,
-          location: enrichedTherapists[0].location,
-          hourly_rate: enrichedTherapists[0].hourly_rate
-        });
-      }
-
-      // Additional debugging: Check for data integrity
-      const profilesWithMissingData = enrichedTherapists.filter(t => 
-        !t.name || t.name === 'Licensed Therapist'
-      );
-      
-      if (profilesWithMissingData.length > 0) {
-        console.warn(`⚠️ ${profilesWithMissingData.length} profiles have missing user data`);
-      }
-
-      setTherapists(enrichedTherapists);
-
-    } catch (error) {
-      console.error('💥 Critical error loading therapists:', error);
-      
-      // Enhanced error debugging
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
-      
-      Alert.alert(
-        'Error Loading Therapists', 
-        'Unable to load therapist profiles. Please check your connection and try again.',
-        [
-          { text: 'Retry', onPress: loadTherapists },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
-      setTherapists([]);
-    } finally {
-      setLoading(false);
+    if (queryError) {
+      console.error('❌ Therapist profiles fetch error:', JSON.stringify(queryError, null, 2));
+      throw new Error(`Failed to fetch therapist profiles: ${queryError.message}`);
     }
-  };
+
+    console.log(`✅ Found ${therapistProfiles?.length || 0} approved therapist profiles`);
+
+    // Type the response properly
+    const rawProfiles = therapistProfiles as RawTherapistResponse[] | null;
+
+    // Debugging check: Log the raw response
+    if (rawProfiles && rawProfiles.length > 0) {
+      console.log('📊 Raw therapist profiles response:', JSON.stringify(rawProfiles[0], null, 2));
+      console.log('🔍 User IDs found:', rawProfiles.map(p => p.user_id));
+      // Log all available keys in the response
+      console.log('🔑 Available fields in response:', Object.keys(rawProfiles[0]));
+    } else {
+      console.warn('⚠️ No approved therapist profiles found in database');
+      // Additional check: Verify table counts for debugging
+      const { count: therapistCount, error: therapistCountError } = await supabase
+        .from('therapist_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_approved', true);
+      const { count: userCount, error: userCountError } = await supabase
+        .from('users')
+        .select('id', { count: 'exact', head: true });
+
+      console.log(`🔍 Therapist profiles count (is_approved=true): ${therapistCount || 0}`);
+      if (therapistCountError) console.error('❌ Therapist count error:', JSON.stringify(therapistCountError, null, 2));
+      console.log(`🔍 Users count: ${userCount || 0}`);
+      if (userCountError) console.error('❌ User count error:', JSON.stringify(userCountError, null, 2));
+      setTherapists([]);
+      Alert.alert(
+        'No Therapists Available',
+        'No approved therapists are currently available. Please try again later.',
+        [{ text: 'OK', style: 'cancel' }]
+      );
+      return;
+    }
+
+    // STEP 2: Map the joined data to the TherapistProfile structure
+    console.log('🔗 Processing therapist profiles...');
+    const enrichedTherapists: TherapistProfile[] = rawProfiles
+      .map((therapist, index) => {
+        // Log raw therapist data for debugging
+        console.log(`🔍 Processing therapist ${index + 1} raw data:`, JSON.stringify(therapist, null, 2));
+
+        // Check for missing user data
+        if (!therapist.name || therapist.name === null) {
+          console.warn(`⚠️ Missing user data for therapist profile ${therapist.therapist_id || therapist.id} (user_id: ${therapist.user_id})`);
+          return null;
+        }
+
+        // Create merged object with all necessary data
+        const enrichedTherapist: TherapistProfile = {
+          // Therapist profile data
+          id: therapist.therapist_id || therapist.id || '', // Fallback in case therapist_id is named differently
+          user_id: therapist.user_id,
+          bio: therapist.bio || '',
+          specialties: therapist.specialties || [],
+          credentials: therapist.credentials || '',
+          experience_years: therapist.experience_years || 0,
+          availability: therapist.availability || [],
+          hourly_rate: therapist.hourly_rate?.toString() || '0',
+          is_approved: therapist.is_approved || false,
+          created_at: therapist.created_at || new Date().toISOString(),
+          updated_at: therapist.updated_at || new Date().toISOString(),
+
+          // User data (personal details)
+          name: therapist.name || 'Licensed Therapist',
+          email: therapist.email || '',
+          phone: therapist.phone || null,
+          photo_url: therapist.photo_url || null,
+          location: therapist.location || null,
+
+          // Debug reference
+          user: {
+            id: therapist.user_id,
+            name: therapist.name || 'Unknown',
+            email: therapist.email || '',
+            phone: therapist.phone || null,
+            photo_url: therapist.photo_url || null,
+            location: therapist.location || null
+          }
+        };
+
+        console.log(`✅ Successfully processed therapist: ${enrichedTherapist.name}`);
+        return enrichedTherapist;
+      })
+      .filter((therapist): therapist is TherapistProfile => therapist !== null);
+
+    console.log(`✅ Successfully processed ${enrichedTherapists.length} therapist profiles`);
+
+    // Final debugging check
+    if (enrichedTherapists.length > 0) {
+      console.log('📊 Sample merged profile:', {
+        id: enrichedTherapists[0].id,
+        name: enrichedTherapists[0].name,
+        specialties: enrichedTherapists[0].specialties,
+        location: enrichedTherapists[0].location,
+        hourly_rate: enrichedTherapists[0].hourly_rate
+      });
+    } else {
+      console.warn('⚠️ No valid therapist profiles after processing');
+      console.log('🔍 Checking for null user data in profiles:', 
+        rawProfiles.filter(t => !t.name || t.name === null).map(t => ({
+          therapist_id: t.therapist_id || t.id,
+          user_id: t.user_id
+        }))
+      );
+    }
+
+    // Additional debugging: Check for data integrity
+    const profilesWithMissingData = enrichedTherapists.filter(t => 
+      !t.name || t.name === 'Licensed Therapist'
+    );
+
+    if (profilesWithMissingData.length > 0) {
+      console.warn(`⚠️ ${profilesWithMissingData.length} profiles have missing user data`);
+    }
+
+    setTherapists(enrichedTherapists);
+
+  } catch (error) {
+    console.error('💥 Critical error loading therapists:', JSON.stringify(error, null, 2));
+
+    // Enhanced error debugging
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+
+    Alert.alert(
+      'Error Loading Therapists', 
+      'Unable to load therapist profiles. Please check your connection and try again.',
+      [
+        { text: 'Retry', onPress: loadTherapists },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+    setTherapists([]);
+  } finally {
+    setLoading(false);
+    console.log('🏁 Therapist data fetch completed');
+  }
+};
 
   // FILTERING LOGIC: Search across multiple fields
   const filteredTherapists = therapists.filter(therapist => {
