@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvo
 import { router } from 'expo-router';
 import { ArrowLeft, Eye, EyeOff, User, Heart } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export default function SignUpScreen() {
   const [formData, setFormData] = useState({
@@ -16,7 +17,6 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
 
   const handleSignUp = async () => {
     if (!formData.name || !formData.email || !formData.password || !formData.role) {
@@ -34,16 +34,51 @@ export default function SignUpScreen() {
       return;
     }
 
-    setLoading(true);
     try {
-      await signUp(formData.email, formData.password, {
-        name: formData.name,
-        role: formData.role,
-        phone: formData.phone,
+      setLoading(true);
+
+      // Create user with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            role: formData.role,
+            phone: formData.phone,
+          }
+        }
       });
-      router.push('/(auth)/setup-profile');
+
+      if (authError) throw authError;
+
+      // Check if email confirmation is required
+      if (authData.user && !authData.session) {
+        // No session means email needs to be confirmed
+        console.log('Email confirmation required');
+        // Pass email and user data to verify-email page
+        router.push({
+          pathname: './verify-email',
+          params: {
+            email: formData.email,
+            name: formData.name,
+            role: formData.role,
+            phone: formData.phone,
+            userId: authData.user.id
+          }
+        });
+        return;
+      }
+
+      // This rarely happens on first signup - only if email confirmation is disabled
+      if (authData.user?.id && authData.session) {
+        console.log('User immediately confirmed - redirecting to setup');
+        router.push('./setup-profile');
+      }
+
     } catch (error: any) {
-      Alert.alert('Sign Up Error', error.message);
+      console.error('Sign up error:', error);
+      Alert.alert('Sign Up Failed', error.message);
     } finally {
       setLoading(false);
     }
