@@ -1,36 +1,121 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { router } from 'expo-router';
-import { Mail, ArrowLeft, RefreshCw } from 'lucide-react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Mail, ArrowLeft, RefreshCw, CheckCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
 export default function VerifyEmailScreen() {
   const [resending, setResending] = useState(false);
+  const [checking, setChecking] = useState(false);
+  
+  // Get params passed from sign-up
+  const params = useLocalSearchParams();
+  const { email, name, role, phone, userId } = params;
+
+  // Show email in UI for confirmation
+  useEffect(() => {
+    console.log('Verify email params:', { email, name, role, phone, userId });
+  }, []);
 
   const handleResendEmail = async () => {
     try {
       setResending(true);
       
-      // Get current user email from auth
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user?.email) {
+      if (!email) {
         Alert.alert('Error', 'No email found. Please try signing up again.');
         return;
       }
 
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: user.email,
+        email: email as string,
       });
 
       if (error) throw error;
 
-      Alert.alert('Email Sent', 'A new verification email has been sent to your inbox.');
+      Alert.alert('Email Sent', `A new verification email has been sent to ${email}.`);
     } catch (error: any) {
+      console.error('Resend email error:', error);
       Alert.alert('Error', 'Failed to resend verification email.');
     } finally {
       setResending(false);
+    }
+  };
+
+  const handleCheckVerification = async () => {
+    try {
+      setChecking(true);
+      
+      if (!email) {
+        Alert.alert('Error', 'No email found. Please try signing up again.');
+        return;
+      }
+
+      // Use the database function to check verification status
+      const { data: verificationData, error: verifyError } = await supabase
+        .rpc('check_email_verification', { user_email: email as string });
+
+      if (verifyError) {
+        console.error('Verification check error:', verifyError);
+        Alert.alert('Error', 'Failed to check verification status. Please try again.');
+        return;
+      }
+
+      const userVerification = verificationData?.[0];
+
+      if (userVerification && userVerification.is_verified) {
+        console.log('✅ Email verified successfully!', userVerification.verified_at);
+        
+        // Check if user record exists in our users table
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', userVerification.user_id)
+          .single();
+
+        if (!existingUser) {
+          // Create user record from the passed data
+          console.log('Creating user record with passed data...');
+          const { error: userError } = await supabase
+            .from('users')
+            .insert({
+              id: userVerification.user_id,
+              email: email as string,
+              name: name as string || '',
+              role: role as 'client' | 'therapist' || 'client',
+              phone: phone as string || null,
+            });
+
+          if (userError) {
+            console.error('Error creating user record:', userError);
+            Alert.alert('Error', 'Failed to create user profile. Please try again.');
+            return;
+          }
+          
+          console.log('User record created successfully');
+        }
+
+        // Navigate to profile setup
+        router.replace('/(auth)/setup-profile');
+        return;
+      } else {
+        // Email not verified yet
+        console.log('❌ Email not verified yet');
+        Alert.alert(
+          'Email Not Verified Yet',
+          `Your email (${email}) has not been verified yet. Please check your email and click the verification link, then try again.`,
+          [
+            { text: 'Resend Email', onPress: handleResendEmail },
+            { text: 'OK', style: 'cancel' }
+          ]
+        );
+      }
+
+    } catch (error: any) {
+      console.error('Verification check error:', error);
+      Alert.alert('Error', 'Failed to check verification status. Please try again.');
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -47,26 +132,40 @@ export default function VerifyEmailScreen() {
 
         <Text style={styles.title}>Check your email</Text>
         <Text style={styles.subtitle}>
-          We've sent a verification link to your email address. Please click the link to verify your account and complete your registration.
+          We've sent a verification link to <Text style={styles.emailText}>{email}</Text>. 
+          Please click the link to verify your account and complete your registration.
         </Text>
 
         <View style={styles.instructions}>
           <Text style={styles.instructionTitle}>Next steps:</Text>
           <Text style={styles.instructionText}>1. Check your email inbox</Text>
           <Text style={styles.instructionText}>2. Click the verification link</Text>
-          <Text style={styles.instructionText}>3. Return to the app to continue</Text>
+          <Text style={styles.instructionText}>3. Come back and click "Continue" below</Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.resendButton, resending && styles.disabledButton]}
-          onPress={handleResendEmail}
-          disabled={resending}
-        >
-          <RefreshCw size={20} color="#14B8A6" />
-          <Text style={styles.resendButtonText}>
-            {resending ? 'Sending...' : 'Resend email'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.continueButton, checking && styles.disabledButton]}
+            onPress={handleCheckVerification}
+            disabled={checking}
+          >
+            <CheckCircle size={20} color="#ffffff" />
+            <Text style={styles.continueButtonText}>
+              {checking ? 'Checking...' : 'Continue'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.resendButton, resending && styles.disabledButton]}
+            onPress={handleResendEmail}
+            disabled={resending}
+          >
+            <RefreshCw size={20} color="#14B8A6" />
+            <Text style={styles.resendButtonText}>
+              {resending ? 'Sending...' : 'Resend email'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.footer}>
           Didn't receive the email? Check your spam folder or try resending.
@@ -139,9 +238,30 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginBottom: 4,
   },
+  buttonContainer: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 24,
+  },
+  continueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#14B8A6',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  continueButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#ffffff',
+  },
   resendButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     backgroundColor: '#ffffff',
     borderRadius: 12,
@@ -149,7 +269,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderWidth: 1,
     borderColor: '#14B8A6',
-    marginBottom: 24,
   },
   resendButtonText: {
     fontSize: 14,
@@ -164,5 +283,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#94a3b8',
     textAlign: 'center',
+  },
+  emailText: {
+    fontFamily: 'Inter-SemiBold',
+    color: '#14B8A6',
   },
 });
