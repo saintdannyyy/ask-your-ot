@@ -14,10 +14,12 @@ interface ExtendedUser extends User {
 }
 
 interface AuthContextType {
-  user: ExtendedUser | null; // Changed from User to ExtendedUser
+  user: ExtendedUser | null;
+  userProfile: ExtendedUser | null; // Add this for compatibility
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfile: (data: any) => Promise<void>; // Add this method
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -106,10 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Enhanced loadExtendedUserData with navigation logic
+  // Enhanced loadExtendedUserData with better error handling
   const loadExtendedUserData = async (authUser: User) => {
     try {
       console.log('🔄 Loading extended user data for:', authUser.email);
+      console.log('🔄 User ID:', authUser.id);
       
       // Get custom user data from our database
       const { data: userData, error } = await supabase
@@ -126,10 +129,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (!userData) {
+        console.warn('⚠️ No user data found in database for:', authUser.email);
+        setUser(authUser as ExtendedUser);
+        return;
+      }
+
       // Merge Supabase user with our custom data
       const extendedUser: ExtendedUser = {
         ...authUser,
-        ...(userData || {}),
+        ...userData,
       };
 
       console.log('✅ Extended user data merged:', {
@@ -137,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: extendedUser.role,
         name: extendedUser.name,
         hasLocation: !!extendedUser.location,
+        hasCondition: !!extendedUser.condition,
       });
 
       setUser(extendedUser);
@@ -167,8 +177,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Add updateProfile method that your components expect
+  const updateProfile = async (profileData: any) => {
+    if (!user) throw new Error('No user logged in');
+
+    console.log('🔄 Updating profile for user:', user.id);
+    console.log('🔄 Profile data:', profileData);
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(profileData)
+      .eq('id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Profile update error:', error);
+      throw error;
+    }
+
+    console.log('✅ Profile updated successfully:', data);
+
+    // Update local state
+    setUser(prev => prev ? { ...prev, ...data } : null);
+  };
+
+  // Add this to your AuthContext or create a separate debug file
+  const debugUserData = async (userId: string) => {
+    console.log('🐛 Debug: Checking user data for ID:', userId);
+    
+    // Check if user exists
+    const { data: userData, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    console.log('🐛 Debug: User data query result:', { userData, error });
+    
+    // Check table structure
+    const { data: allUsers, error: allError } = await supabase
+      .from('users')
+      .select('*')
+      .limit(1);
+    
+    console.log('🐛 Debug: Sample user record:', { allUsers, allError });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      userProfile: user, // Provide userProfile as an alias to user
+      loading, 
+      signIn, 
+      signOut, 
+      updateProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );
