@@ -20,7 +20,13 @@ export default function SignInScreen() {
     setLoading(true);
     try {
       await signIn(email, password);
-      router.replace('/(tabs)');
+      
+      // Wait a moment for auth state to update
+      setTimeout(() => {
+        // The AuthContext will handle navigation based on user profile state
+        // Don't force navigation here - let the auth listener handle it
+      }, 1000);
+      
     } catch (error: any) {
       Alert.alert('Sign In Error', error.message);
     } finally {

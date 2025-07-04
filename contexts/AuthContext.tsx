@@ -65,9 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ AuthContext: User signed in, loading extended data...');
+          
+          // Load extended user data first
           await loadExtendedUserData(session.user);
           
-          // Check if user needs profile setup
+          // Then check profile setup after user data is loaded
           const { data: existingUser } = await supabase
             .from('users')
             .select('id, role, location, photo_url')
@@ -79,13 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             if (needsProfileSetup) {
               console.log('User needs profile completion');
-              router.replace('/(auth)/setup-profile');
+              // Don't navigate here - let the sign-in screen handle it
+              // router.replace('/(auth)/setup-profile');
             } else {
               console.log('User profile is complete - going to main app');
               router.replace('/(tabs)');
             }
           } else {
-            // No user record - something went wrong
             console.log('No user record found - redirecting to signup');
             router.replace('/(auth)/sign-up');
           }
