@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Calendar, Clock, User, CreditCard, CheckCircle } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Clock, User, CheckCircle, Phone, Video } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,336 +11,193 @@ type TimeSlot = {
   available: boolean;
 };
 
-export default function BookingScreen() {
-  const { id } = useLocalSearchParams();
+type TherapistData = {
+  id: string;
+  user_id: string;
+  bio: string;
+  specialties: string[];
+  credentials: string;
+  experience_years: number;
+  hourly_rate: string;
+  is_approved: boolean;
+  users: {
+    id: string;
+    name: string;
+    email: string;
+    photo_url: string | null;
+    location: string | null;
+    phone: string | null;
+  } | null;
+};
+
+export default function AppointmentsScreen() {
   const { userProfile } = useAuth();
-  const [therapist, setTherapist] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedTime, setSelectedTime] = useState<string>('');
-  const [duration, setDuration] = useState<number>(60);
-  const [notes, setNotes] = useState<string>('');
+  const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [booking, setBooking] = useState(false);
-
-  const timeSlots: TimeSlot[] = [
-    { time: '09:00', available: true },
-    { time: '10:00', available: true },
-    { time: '11:00', available: false },
-    { time: '12:00', available: true },
-    { time: '13:00', available: false },
-    { time: '14:00', available: true },
-    { time: '15:00', available: true },
-    { time: '16:00', available: true },
-    { time: '17:00', available: false },
-  ];
-
-  const durations = [
-    { value: 30, label: '30 minutes' },
-    { value: 60, label: '1 hour' },
-    { value: 90, label: '1.5 hours' },
-  ];
 
   useEffect(() => {
-    loadTherapist();
-  }, [id]);
+    if (userProfile?.id) {
+      loadAppointments();
+    }
+  }, [userProfile]);
 
-  const loadTherapist = async () => {
+  const loadAppointments = async () => {
+    if (!userProfile?.id) return;
+
     try {
-      const { data: therapistData, error: therapistError } = await supabase
-        .from('therapist_profiles')
-        .select('*, users(name, photo_url)')
-        .eq('id', id)
-        .single();
+      console.log('🔍 Loading appointments for user:', userProfile.id);
+      
+      let query = supabase
+        .from('appointments')
+        .select(`
+          *,
+          client:users!client_id(id, name, email, phone, photo_url),
+          therapist:users!therapist_id(id, name, email, phone, photo_url)
+        `)
+        .order('scheduled_at', { ascending: true });
 
-      if (therapistError) {
-        Alert.alert('Error', 'Therapist not found');
-        router.back();
+      // Filter based on user role
+      if (userProfile.role === 'client') {
+        query = query.eq('client_id', userProfile.id);
+      } else if (userProfile.role === 'therapist') {
+        query = query.eq('therapist_id', userProfile.id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('❌ Error loading appointments:', error);
+        Alert.alert('Error', 'Failed to load appointments');
         return;
       }
 
-      setTherapist(therapistData);
+      console.log('✅ Appointments loaded:', data?.length || 0);
+      setAppointments(data || []);
+
     } catch (error) {
-      console.error('Error loading therapist:', error);
-      Alert.alert('Error', 'Failed to load therapist data');
-      router.back();
+      console.error('💥 Error loading appointments:', error);
+      Alert.alert('Error', 'Failed to load appointments');
     } finally {
       setLoading(false);
     }
   };
 
-  const generateDateOptions = () => {
-    const dates = [];
-    const today = new Date();
-    
-    for (let i = 0; i < 14; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      dates.push(date);
-    }
-    
-    return dates;
-  };
-
-  const formatDate = (date: Date) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
+  const formatAppointmentDate = (dateString: string) => {
+    const date = new Date(dateString);
     return {
-      day: days[date.getDay()],
-      date: date.getDate(),
-      month: months[date.getMonth()],
+      date: date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      }),
+      time: date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
     };
   };
 
-  const calculateTotal = () => {
-    if (!therapist) return 0;
-    const hourlyRate = parseFloat(therapist.hourly_rate) || 0;
-    return (hourlyRate * duration) / 60;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'booked': return '#14B8A6';
+      case 'confirmed': return '#10B981';
+      case 'cancelled': return '#EF4444';
+      case 'completed': return '#6B7280';
+      default: return '#64748B';
+    }
   };
 
-  const handleBookAppointment = async () => {
-    if (!selectedTime) {
-      Alert.alert('Error', 'Please select a time slot');
-      return;
-    }
+  const renderAppointmentCard = (appointment: any) => {
+    const dateInfo = formatAppointmentDate(appointment.scheduled_at);
+    const otherUser = userProfile.role === 'client' ? appointment.therapist : appointment.client; // ✅ Changed
 
-    setBooking(true);
-    
-    try {
-      // Create appointment
-      const appointmentDateTime = new Date(selectedDate);
-      const [hours, minutes] = selectedTime.split(':');
-      appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    return (
+      <View key={appointment.id} style={styles.appointmentCard}>
+        <View style={styles.appointmentHeader}>
+          <View style={styles.appointmentDate}>
+            <Text style={styles.appointmentDateText}>{dateInfo.date}</Text>
+            <Text style={styles.appointmentTimeText}>{dateInfo.time}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
+            <Text style={styles.statusText}>{appointment.status}</Text>
+          </View>
+        </View>
 
-      const { error } = await supabase
-        .from('appointments')
-        .insert({
-          client_id: userProfile?.id,
-          therapist_id: therapist.user_id,
-          scheduled_at: appointmentDateTime.toISOString(),
-          duration: duration,
-          status: 'booked',
-          notes: notes || null,
-        });
+        <View style={styles.appointmentContent}>
+          <View style={styles.userInfo}>
+            <User size={20} color="#64748B" />
+            <Text style={styles.userName}>{otherUser?.name || 'Unknown'}</Text>
+          </View>
 
-      if (error) {
-        throw error;
-      }
+          <View style={styles.appointmentDetails}>
+            <View style={styles.detailRow}>
+              <Clock size={16} color="#64748B" />
+              <Text style={styles.detailText}>{appointment.duration} minutes</Text>
+            </View>
+            
+            {appointment.notes && (
+              <View style={styles.notesContainer}>
+                <Text style={styles.notesText}>{appointment.notes}</Text>
+              </View>
+            )}
+          </View>
 
-      Alert.alert(
-        'Success!', 
-        'Your appointment has been booked successfully. You will receive a confirmation shortly.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.push('/(tabs)/appointments')
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Error booking appointment:', error);
-      Alert.alert('Error', 'Failed to book appointment. Please try again.');
-    } finally {
-      setBooking(false);
-    }
+          <View style={styles.appointmentActions}>
+            {appointment.meeting_link && (
+              <TouchableOpacity style={styles.actionButton}>
+                <Video size={16} color="#14B8A6" />
+                <Text style={styles.actionButtonText}>Join Meeting</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity style={styles.actionButton}>
+              <Phone size={16} color="#14B8A6" />
+              <Text style={styles.actionButtonText}>Contact</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading booking details...</Text>
+        <Text style={styles.loadingText}>Loading appointments...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <ArrowLeft size={24} color="#1e293b" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Book Session</Text>
-        <View style={styles.headerButton} />
+        <Text style={styles.headerTitle}>My Appointments</Text>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Therapist Info */}
-        <View style={styles.therapistCard}>
-          <View style={styles.therapistInfo}>
-            <Text style={styles.therapistName}>{therapist?.users?.name || 'Unknown'}</Text>
-            <Text style={styles.therapistCredentials}>{therapist?.credentials}</Text>
-            <Text style={styles.therapistRate}>₵{therapist?.hourly_rate}/hour</Text>
-          </View>
-        </View>
-
-        {/* Date Selection */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Calendar size={20} color="#14B8A6" />
-            <Text style={styles.sectionTitle}>Select Date</Text>
-          </View>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
-            <View style={styles.dateContainer}>
-              {generateDateOptions().map((date, index) => {
-                const dateInfo = formatDate(date);
-                const isSelected = selectedDate.toDateString() === date.toDateString();
-                
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={[styles.dateCard, isSelected && styles.selectedDateCard]}
-                    onPress={() => setSelectedDate(date)}
-                  >
-                    <Text style={[styles.dayText, isSelected && styles.selectedDateText]}>
-                      {dateInfo.day}
-                    </Text>
-                    <Text style={[styles.dateNumber, isSelected && styles.selectedDateText]}>
-                      {dateInfo.date}
-                    </Text>
-                    <Text style={[styles.monthText, isSelected && styles.selectedDateText]}>
-                      {dateInfo.month}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* Time Selection */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Clock size={20} color="#14B8A6" />
-            <Text style={styles.sectionTitle}>Select Time</Text>
-          </View>
-          
-          <View style={styles.timeGrid}>
-            {timeSlots.map((slot, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.timeSlot,
-                  !slot.available && styles.disabledTimeSlot,
-                  selectedTime === slot.time && styles.selectedTimeSlot
-                ]}
-                onPress={() => slot.available && setSelectedTime(slot.time)}
-                disabled={!slot.available}
-              >
-                <Text style={[
-                  styles.timeText,
-                  !slot.available && styles.disabledTimeText,
-                  selectedTime === slot.time && styles.selectedTimeText
-                ]}>
-                  {slot.time}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Duration Selection */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Clock size={20} color="#14B8A6" />
-            <Text style={styles.sectionTitle}>Session Duration</Text>
-          </View>
-          
-          <View style={styles.durationContainer}>
-            {durations.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.durationOption,
-                  duration === option.value && styles.selectedDuration
-                ]}
-                onPress={() => setDuration(option.value)}
-              >
-                <Text style={[
-                  styles.durationText,
-                  duration === option.value && styles.selectedDurationText
-                ]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Notes */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <User size={20} color="#14B8A6" />
-            <Text style={styles.sectionTitle}>Additional Notes (Optional)</Text>
-          </View>
-          
-          <TextInput
-            style={styles.notesInput}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Tell your therapist about your specific needs, concerns, or goals for this session..."
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
-
-        {/* Summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Booking Summary</Text>
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Date:</Text>
-            <Text style={styles.summaryValue}>
-              {selectedDate.toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
+        {appointments.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Calendar size={64} color="#CBD5E1" />
+            <Text style={styles.emptyStateTitle}>No appointments yet</Text>
+            <Text style={styles.emptyStateText}>
+              {userProfile.role === 'client' // ✅ Changed
+                ? 'Book your first session with a therapist'
+                : 'Your appointments will appear here'
+              }
             </Text>
-          </View>
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Time:</Text>
-            <Text style={styles.summaryValue}>{selectedTime || 'Not selected'}</Text>
-          </View>
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Duration:</Text>
-            <Text style={styles.summaryValue}>{duration} minutes</Text>
-          </View>
-          
-          <View style={[styles.summaryRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total:</Text>
-            <Text style={styles.totalValue}>₵{calculateTotal().toFixed(2)}</Text>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Book Button */}
-      <View style={styles.bottomActions}>
-        <TouchableOpacity
-          style={[styles.bookButton, (!selectedTime || booking) && styles.disabledButton]}
-          onPress={handleBookAppointment}
-          disabled={!selectedTime || booking}
-        >
-          <LinearGradient
-            colors={['#14B8A6', '#0d9488']}
-            style={styles.bookButtonGradient}
-          >
-            {booking ? (
-              <Text style={styles.bookButtonText}>Booking...</Text>
-            ) : (
-              <>
-                <CheckCircle size={20} color="#ffffff" />
-                <Text style={styles.bookButtonText}>Confirm Booking</Text>
-              </>
+            {userProfile.role === 'client' && ( // ✅ Changed
+              <TouchableOpacity 
+                style={styles.searchButton}
+                onPress={() => router.push('/(tabs)/search')}
+              >
+                <Text style={styles.searchButtonText}>Find Therapists</Text>
+              </TouchableOpacity>
             )}
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+          </View>
+        ) : (
+          appointments.map(renderAppointmentCard)
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -355,11 +212,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
+    paddingHorizontal: 24,
   },
   loadingText: {
     fontSize: 16,
     fontFamily: 'Inter-Medium',
     color: '#64748b',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#14B8A6',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#ffffff',
   },
   header: {
     flexDirection: 'row',
@@ -630,6 +500,134 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontSize: 16,
     fontFamily: 'Inter-Bold',
+    color: '#ffffff',
+  },
+  appointmentCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  appointmentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  appointmentDate: {
+    flex: 1,
+  },
+  appointmentDateText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1e293b',
+  },
+  appointmentTimeText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#64748b',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: '#ffffff',
+    textTransform: 'capitalize',
+  },
+  appointmentContent: {
+    gap: 12,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  userName: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1e293b',
+  },
+  appointmentDetails: {
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#64748b',
+  },
+  notesContainer: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 12,
+  },
+  notesText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#475569',
+    lineHeight: 20,
+  },
+  appointmentActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#f0fdfa',
+    borderRadius: 8,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#14B8A6',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1e293b',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  searchButton: {
+    backgroundColor: '#14B8A6',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  searchButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
     color: '#ffffff',
   },
 });
