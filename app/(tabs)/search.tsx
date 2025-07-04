@@ -272,8 +272,8 @@ const loadTherapists = async () => {
   // NAVIGATION HANDLERS
   const handleBookAppointment = (therapistId: string) => {
     console.log(`🎯 Navigating to booking for therapist: ${therapistId}`);
-    // Fix the route - should navigate to appointments with the therapist ID
-    router.push(`/(tabs)/appointments?id=${therapistId}`);
+    // Navigate to the new booking screen
+    router.push(`/(tabs)/booking?id=${therapistId}`);
   };
 
   const handleViewProfile = (therapistId: string) => {
