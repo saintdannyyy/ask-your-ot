@@ -272,12 +272,14 @@ const loadTherapists = async () => {
   // NAVIGATION HANDLERS
   const handleBookAppointment = (therapistId: string) => {
     console.log(`🎯 Navigating to booking for therapist: ${therapistId}`);
-    router.push(`./appointment/${therapistId}`);
+    // Fix the route - should navigate to appointments with the therapist ID
+    router.push(`/(tabs)/appointments?id=${therapistId}`);
   };
 
   const handleViewProfile = (therapistId: string) => {
     console.log(`👁️ Navigating to profile for therapist: ${therapistId}`);
-    router.push(`../therapist/${therapistId}`);
+    // This route may need to be created or adjusted based on your app structure
+    router.push(`/(tabs)/therapist?id=${therapistId}`);
   };
 
   // LOADING STATE
