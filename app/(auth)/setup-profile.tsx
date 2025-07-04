@@ -180,28 +180,72 @@ export default function SetupProfileScreen() {
 
   const uploadImage = async (uri: string): Promise<string | null> => {
     try {
-      const fileName = `profile_${currentUser?.id}_${Date.now()}.jpg`;
-      const formData = new FormData();
+      console.log('📸 Starting image upload for URI:', uri);
       
-      formData.append('file', {
-        uri,
-        type: 'image/jpeg',
-        name: fileName,
-      } as any);
-
+      // Create a unique filename
+      const fileName = `profile_${currentUser?.id}_${Date.now()}.jpg`;
+      
+      // Convert URI to blob for proper upload
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      console.log('📸 Image converted to blob, size:', blob.size);
+      
+      // Upload to Supabase Storage using blob (not FormData)
       const { data, error } = await supabase.storage
         .from('profile-pictures')
-        .upload(fileName, formData);
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg',
+          upsert: false // Don't overwrite existing files
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('📸 Storage upload error:', error);
+        
+        // Handle specific error cases
+        if (error.message.includes('Bucket not found')) {
+          console.warn('⚠️ Storage bucket "profile-pictures" does not exist');
+          Alert.alert(
+            'Upload Unavailable',
+            'Photo upload is temporarily unavailable. Your profile will be saved without a photo.',
+            [{ text: 'OK' }]
+          );
+          return null;
+        }
+        
+        if (error.message.includes('row-level security policy') || error.message.includes('Unauthorized')) {
+          console.warn('⚠️ Storage bucket has restrictive RLS policies');
+          Alert.alert(
+            'Upload Permission Issue',
+            'Photo upload is currently restricted. Your profile will be saved without a photo.',
+            [{ text: 'OK' }]
+          );
+          return null;
+        }
+        
+        throw error;
+      }
 
+      console.log('✅ Image uploaded successfully:', data.path);
+
+      // Get the public URL
       const { data: urlData } = supabase.storage
         .from('profile-pictures')
         .getPublicUrl(data.path);
 
+      console.log('✅ Public URL generated:', urlData.publicUrl);
       return urlData.publicUrl;
+      
     } catch (error) {
-      console.error('Image upload error:', error);
+      console.error('💥 Image upload error:', error);
+      
+      // Don't fail the entire profile setup for image upload issues
+      Alert.alert(
+        'Photo Upload Failed',
+        'Your profile photo could not be uploaded, but your profile will still be saved. You can add a photo later from your profile settings.',
+        [{ text: 'Continue' }]
+      );
+      
       return null;
     }
   };
@@ -238,16 +282,17 @@ export default function SetupProfileScreen() {
         return;
       }
 
-      // Launch image picker with correct API
+      // Launch image picker - compatible with all versions
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Correct usage
+        mediaTypes: 'images', // Simple string approach
         allowsEditing: true,
-        aspect: [1, 1], // Square aspect ratio for profile pictures
+        aspect: [1, 1],
         quality: 0.8,
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
         const imageUri = result.assets[0].uri;
+        console.log('📸 Image selected:', imageUri);
         setProfileData(prev => ({ ...prev, photo_url: imageUri }));
       }
     } catch (error) {
@@ -256,90 +301,238 @@ export default function SetupProfileScreen() {
     }
   };
 
-  // Enhanced completion handler - Creates session at the end
+  // Enhanced completion handler with detailed debugging
   const handleComplete = async () => {
+    console.log('🚀 === PROFILE SETUP COMPLETION STARTED ===');
+    console.log('📊 Initial State:', {
+      step: step,
+      totalSteps: totalSteps,
+      userRole: currentUser.role,
+      userId: currentUser.id,
+      userEmail: currentUser.email,
+      userName: currentUser.name,
+      fromVerification: fromVerification
+    });
+    
     setIsLoading(true);
+    
     try {
       let uploadedPhotoUrl = null;
 
-      // Upload photo if provided (but don't fail if upload fails)
+      // STEP 1: Handle photo upload if provided
       if (profileData.photo_url) {
-        console.log('📸 Uploading profile photo...');
-        uploadedPhotoUrl = await uploadImage(profileData.photo_url);
+        console.log('📸 === PHOTO UPLOAD SECTION ===');
+        console.log('📸 Photo URI provided:', profileData.photo_url);
+        console.log('📸 Attempting to upload profile photo...');
         
-        if (uploadedPhotoUrl) {
-          console.log('✅ Photo uploaded successfully');
-        } else {
-          console.log('⚠️ Photo upload skipped or failed');
+        try {
+          uploadedPhotoUrl = await uploadImage(profileData.photo_url);
+          
+          if (uploadedPhotoUrl) {
+            console.log('✅ Photo uploaded successfully:', uploadedPhotoUrl);
+          } else {
+            console.log('⚠️ Photo upload returned null, continuing without photo');
+          }
+        } catch (uploadError) {
+          console.error('📸 Photo upload failed, but continuing with profile setup:', uploadError);
+          console.error('📸 Upload error details:', JSON.stringify(uploadError, null, 2));
+          // Continue without photo - don't fail the entire setup
         }
+      } else {
+        console.log('📸 No photo provided, skipping upload');
       }
 
-      // Update user profile in database
+      // STEP 2: Prepare user update data
+      console.log('💾 === DATABASE UPDATE SECTION ===');
+      console.log('💾 Preparing user update data...');
+      
       const userUpdateData: any = {
         location: profileData.location,
         photo_url: uploadedPhotoUrl, // Will be null if upload failed/skipped
+        updated_at: new Date().toISOString(), // Add timestamp
       };
 
+      // Add role-specific data
       if (currentUser.role === 'client') {
+        console.log('👤 Client role detected, adding condition data');
         userUpdateData.condition = profileData.condition === 'Other (Please specify)' 
           ? profileData.customCondition 
           : profileData.condition;
+        
+        console.log('👤 Client condition:', userUpdateData.condition);
       }
 
-      console.log('💾 Updating user profile in database...');
-      const { error: userError } = await supabase
+      console.log('💾 Final user update data:', JSON.stringify(userUpdateData, null, 2));
+      console.log('💾 Target user ID:', currentUser.id);
+
+      // STEP 3: Check if user exists before update
+      console.log('🔍 === USER EXISTENCE CHECK ===');
+      const { data: existingUser, error: checkError } = await supabase
         .from('users')
-        .update(userUpdateData)
-        .eq('id', currentUser.id);
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
 
-      if (userError) {
-        console.error('❌ User update error:', userError);
-        throw userError;
+      console.log('🔍 User existence check result:', {
+        userExists: !!existingUser,
+        userData: existingUser ? {
+          id: existingUser.id,
+          email: existingUser.email,
+          name: existingUser.name,
+          role: existingUser.role,
+          created_at: existingUser.created_at
+        } : null,
+        checkError: checkError
+      });
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ Error checking user existence:', checkError);
+        throw new Error(`User existence check failed: ${checkError.message}`);
       }
-      
-      console.log('✅ User profile updated successfully');
 
-      // Create therapist profile if user is a therapist
+      // STEP 4: Update or create user record
+      if (!existingUser) {
+        console.log('🔧 === USER CREATION (FALLBACK) ===');
+        console.log('🔧 User record not found, creating new record...');
+        
+        const newUserData = {
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name,
+          role: currentUser.role,
+          phone: currentUser.phone,
+          ...userUpdateData,
+          created_at: new Date().toISOString(),
+        };
+        
+        console.log('🔧 Creating user with data:', JSON.stringify(newUserData, null, 2));
+        
+        const { data: createResult, error: createError } = await supabase
+          .from('users')
+          .insert(newUserData)
+          .select();
+
+        console.log('🔧 User creation result:', {
+          success: !createError,
+          data: createResult,
+          error: createError
+        });
+
+        if (createError) {
+          console.error('❌ User creation failed:', createError);
+          throw new Error(`User creation failed: ${createError.message}`);
+        }
+        
+        console.log('✅ User record created successfully');
+        
+      } else {
+        console.log('📝 === USER UPDATE ===');
+        console.log('📝 User exists, updating record...');
+        console.log('📝 Updating user profile in database...');
+        
+        const { data: updateResult, error: userError } = await supabase
+          .from('users')
+          .update(userUpdateData)
+          .eq('id', currentUser.id)
+          .select();
+
+        console.log('📝 User update result:', {
+          success: !userError,
+          data: updateResult,
+          error: userError,
+          affectedRows: updateResult?.length || 0
+        });
+
+        if (userError) {
+          console.error('❌ User update error:', userError);
+          console.error('❌ Update error details:', JSON.stringify(userError, null, 2));
+          throw userError;
+        }
+        
+        console.log('✅ User profile updated successfully');
+      }
+
+      // STEP 5: Create therapist profile if user is a therapist
       if (currentUser.role === 'therapist') {
+        console.log('👩‍⚕️ === THERAPIST PROFILE CREATION ===');
         console.log('👩‍⚕️ Creating therapist profile...');
         
         const specialties = profileData.specialties || [];
         if (profileData.customSpecialty?.trim()) {
           specialties.push(profileData.customSpecialty);
+          console.log('👩‍⚕️ Added custom specialty:', profileData.customSpecialty);
         }
 
-        const { error: therapistError } = await supabase
+        const therapistData = {
+          user_id: currentUser.id,
+          bio: profileData.bio || '',
+          specialties: specialties,
+          credentials: profileData.credentials || '',
+          experience_years: profileData.experience_years || 0,
+          hourly_rate: profileData.hourly_rate ? parseFloat(profileData.hourly_rate) : null,
+          is_approved: false, // Requires admin approval
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        console.log('👩‍⚕️ Therapist profile data:', JSON.stringify(therapistData, null, 2));
+
+        const { data: therapistResult, error: therapistError } = await supabase
           .from('therapist_profiles')
-          .insert({
-            user_id: currentUser.id,
-            bio: profileData.bio || '',
-            specialties: specialties,
-            credentials: profileData.credentials || '',
-            experience_years: profileData.experience_years || 0,
-            hourly_rate: profileData.hourly_rate ? parseFloat(profileData.hourly_rate) : null,
-            is_approved: false, // Requires admin approval
-          });
+          .insert(therapistData)
+          .select();
+
+        console.log('👩‍⚕️ Therapist profile creation result:', {
+          success: !therapistError,
+          data: therapistResult,
+          error: therapistError
+        });
 
         if (therapistError) {
           console.error('❌ Therapist profile error:', therapistError);
+          console.error('❌ Therapist error details:', JSON.stringify(therapistError, null, 2));
           throw therapistError;
         }
         
         console.log('✅ Therapist profile created successfully');
       }
 
+      // STEP 6: Final verification
+      console.log('🔍 === FINAL VERIFICATION ===');
+      const { data: finalUserCheck, error: finalCheckError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+
+      console.log('🔍 Final user data verification:', {
+        userFound: !!finalUserCheck,
+        hasLocation: !!finalUserCheck?.location,
+        hasCondition: currentUser.role === 'client' ? !!finalUserCheck?.condition : 'N/A',
+        hasPhotoUrl: !!finalUserCheck?.photo_url,
+        error: finalCheckError
+      });
+
       // Profile complete - redirect to sign-in
+      console.log('🎉 === PROFILE SETUP COMPLETED SUCCESSFULLY ===');
       console.log('🎉 Profile setup complete!');
+      console.log('🎉 User role:', currentUser.role);
+      console.log('🎉 Redirecting to sign-in page...');
       
       Alert.alert(
         'Profile Completed!',
         currentUser.role === 'therapist' 
-          ? 'Your therapist profile has been created! Please sign in to access your account.' 
+          ? 'Your therapist profile has been created and is pending approval. Please sign in to access your account.' 
           : 'Your profile is ready! Please sign in to access your account.',
         [
           {
             text: 'Sign In',
             onPress: () => {
+              console.log('🔄 Navigating to sign-in with params:', {
+                email: currentUser.email,
+                profileComplete: 'true'
+              });
+              
               router.replace({
                 pathname: '/(auth)/sign-in',
                 params: {
@@ -353,21 +546,34 @@ export default function SetupProfileScreen() {
       );
 
     } catch (error: any) {
+      console.error('💥 === PROFILE COMPLETION ERROR ===');
       console.error('💥 Profile completion error:', error);
+      console.error('💥 Error message:', error.message);
+      console.error('💥 Error stack:', error.stack);
+      console.error('💥 Full error object:', JSON.stringify(error, null, 2));
       
       // Show specific error messages
       let errorMessage = 'Failed to complete profile setup. Please try again.';
       
       if (error.message?.includes('duplicate key')) {
         errorMessage = 'Profile already exists. Please sign in instead.';
+        console.log('🔄 Duplicate key error - redirecting to sign-in');
       } else if (error.message?.includes('not found')) {
         errorMessage = 'User account not found. Please start over.';
+        console.log('🔄 User not found error - need to restart signup');
       } else if (error.message?.includes('permission')) {
         errorMessage = 'Permission denied. Please check your account settings.';
+        console.log('🔄 Permission error - RLS policy issue');
+      } else if (error.message?.includes('violates')) {
+        errorMessage = 'Data validation error. Please check your input and try again.';
+        console.log('🔄 Data validation error - constraint violation');
       }
       
+      console.error('💥 Showing error to user:', errorMessage);
       Alert.alert('Setup Error', errorMessage);
+      
     } finally {
+      console.log('🏁 === PROFILE SETUP PROCESS ENDED ===');
       setIsLoading(false);
     }
   };
