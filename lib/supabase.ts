@@ -1,11 +1,20 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/types/database';
+import Constants from 'expo-constants';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+console.log('🔍 Supabase Configuration Check:');
+console.log('- URL available:', !!supabaseUrl);
+console.log('- Key available:', !!supabaseAnonKey);
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase configuration');
+  throw new Error('Missing Supabase configuration. Please check your environment variables.');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
