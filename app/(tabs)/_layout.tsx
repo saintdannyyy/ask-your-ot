@@ -59,6 +59,14 @@ export default function TabLayout() {
         }}
       />
 
+      {/* Booking Tab - Hidden from tab bar but accessible via navigation */}
+      <Tabs.Screen
+        name="booking"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+
       {/* Messages Tab - Always visible */}
       <Tabs.Screen
         name="messages"
@@ -77,9 +85,17 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Hide education tab from navigation but keep file structure */}
+      {/* Education Tab - Hidden from tab bar but accessible via navigation */}
       <Tabs.Screen
         name="education"
+        options={{
+          href: null, // This hides the tab from navigation
+        }}
+      />
+
+      {/* Therapist Tab - Hidden from tab bar but accessible via navigation */}
+      <Tabs.Screen
+        name="therapist"
         options={{
           href: null, // This hides the tab from navigation
         }}
