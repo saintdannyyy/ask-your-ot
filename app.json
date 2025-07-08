@@ -4,13 +4,13 @@
     "slug": "otconekt",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/ot.jpg",
+    "icon": "./assets/images/icon.png",
     "scheme": "otconekt",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/ot.jpg",
-      "resizeMode": "cover",
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
       "backgroundColor": "#14B8A6"
     },
     "assetBundlePatterns": [
@@ -26,19 +26,16 @@
     "android": {
       "package": "com.saintdannyyy.otconekt",
       "versionCode": 3,
-      "compileSdkVersion": 34,
-      "targetSdkVersion": 34,
-      "minSdkVersion": 23,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/ot.jpg",
-        "backgroundColor": "#14B8A6"
-      },
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE"
-      ]
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#14B8A6"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -57,7 +54,9 @@
       "router": {},
       "eas": {
         "projectId": "8163a94a-6dee-4b65-aad6-054b16e08683"
-      }
+      },
+      "supabaseUrl": "https://wmmttrixdapywegjadpt.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtbXR0cml4ZGFweXdlZ2phZHB0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDI1NDgsImV4cCI6MjA2NTYxODU0OH0.CGSv2MdPmQFQwHxM0b7KfezXALCv8P8rzZ4oAz4Os54"
     },
     "owner": "saintdannyyy"
   }
